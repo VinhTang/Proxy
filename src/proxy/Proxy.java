@@ -5,6 +5,7 @@
  */
 package proxy;
 
+import ssh.SessionSSH;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
@@ -203,8 +204,22 @@ public class Proxy extends Thread {
     //----------------------------------------
     ////////////////////////////////////////////////////////////////////////////
     public void Close() {
+        //Disconnect Client <-> Proxy
         try {
-            if (ServerSocket == null) {
+            if (ClientSocket != null) {
+                ClientOutput.flush();
+                ClientOutput.close();
+                ClientSocket.close();
+            }
+
+        } catch (Exception e) {
+        }
+        
+        //Disconnect Proxy <-> LinuxServer
+        try {
+            if (ServerSocket != null) {
+                ServerOutput.flush();
+                ServerOutput.close();
                 ServerSocket.close();
             }
         } catch (Exception e) {
@@ -215,9 +230,9 @@ public class Proxy extends Thread {
 
         Logs.Println("Proxy Closed !");
     }
+    //-------------------------------------------
+
     ////////////////////////////////////////////////////////////////////////////
-
-
     //---------------------------------------
     public void ConnectToServer(String ServerHost, int ServerPort) throws IOException {
         //	Connect to the Remote Host

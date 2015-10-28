@@ -1,10 +1,10 @@
+package proxy;
+
 /*
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package proxy;
-
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Properties;
@@ -82,6 +82,18 @@ public class Tools {
         return str;
     }
 
+    public static String byte2str(byte[] str, int s, int l) {
+        return byte2str(str, s, l, "UTF-8");
+    }
+
+    public static String byte2str(byte[] str, int s, int l, String encoding) {
+        try {
+            return new String(str, s, l, encoding);
+        } catch (java.io.UnsupportedEncodingException e) {
+            return new String(str, s, l);
+        }
+    }
+
     public static byte[] str2byte(String str) {
         return str2byte(str, "UTF-8");
     }
@@ -95,6 +107,50 @@ public class Tools {
         } catch (java.io.UnsupportedEncodingException e) {
             return str.getBytes();
         }
+    }
+
+    public static String diffString(String str, String[] not_available) {
+        String[] stra = Tools.split(str, ",");
+        String result = null;
+        loop:
+        for (int i = 0; i < stra.length; i++) {
+            for (int j = 0; j < not_available.length; j++) {
+                if (stra[i].equals(not_available[j])) {
+                    continue loop;
+                }
+            }
+            if (result == null) {
+                result = stra[i];
+            } else {
+                result = result + "," + stra[i];
+            }
+        }
+        return result;
+    }
+
+    public static String[] split(String foo, String split) {
+        if (foo == null) {
+            return null;
+        }
+        byte[] buf = Tools.str2byte(foo);
+        java.util.Vector bar = new java.util.Vector();
+        int start = 0;
+        int index;
+        while (true) {
+            index = foo.indexOf(split, start);
+            if (index >= 0) {
+                bar.addElement(Tools.byte2str(buf, start, index - start));
+                start = index + 1;
+                continue;
+            }
+            bar.addElement(Tools.byte2str(buf, start, buf.length - start));
+            break;
+        }
+        String[] result = new String[bar.size()];
+        for (int i = 0; i < result.length; i++) {
+            result[i] = (String) (bar.elementAt(i));
+        }
+        return result;
     }
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -137,4 +193,5 @@ public class Tools {
 //        return ((byte2int(Hi) << 8) | byte2int(Lo));
 //    }
 ////////////////////////////////////////////////////////////////////////////////
+
 }

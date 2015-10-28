@@ -9,6 +9,7 @@
  * @author Milky_Way
  */
 //---------------------------------------------
+import proxy.Tools;
 import proxy.SOCKServer;
 import proxy.Logs;
 import java.util.Properties;

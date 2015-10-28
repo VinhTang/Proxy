@@ -1,5 +1,7 @@
 package proxy;
 
+
+
 import java.net.BindException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
@@ -43,7 +45,7 @@ public class Logs {
         }
     }
 
-    static void Error(Exception e) {
+    public static void Error(Exception e) {
         if (!EnableLog) {
             return;
         }
