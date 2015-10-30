@@ -27,36 +27,46 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-package com.jcraft.jsch.jce;
+package jce;
 
 import java.security.*;
 import java.security.interfaces.*;
 
-public class KeyPairGenDSA implements ssh.KeyPairGenDSA{
-  byte[] x;  // private
-  byte[] y;  // public
-  byte[] p;
-  byte[] q;
-  byte[] g;
+public class KeyPairGenRSA implements ssh.KeyPairGenRSA{
+  byte[] d;  // private
+  byte[] e;  // public
+  byte[] n;
+
+  byte[] c; //  coefficient
+  byte[] ep; // exponent p
+  byte[] eq; // exponent q
+  byte[] p;  // prime p
+  byte[] q;  // prime q
 
   public void init(int key_size) throws Exception{
-    KeyPairGenerator keyGen = KeyPairGenerator.getInstance("DSA");
+    KeyPairGenerator keyGen = KeyPairGenerator.getInstance("RSA");
     keyGen.initialize(key_size, new SecureRandom());
     KeyPair pair = keyGen.generateKeyPair();
+
     PublicKey pubKey=pair.getPublic();
     PrivateKey prvKey=pair.getPrivate();
 
-    x=((DSAPrivateKey)prvKey).getX().toByteArray();
-    y=((DSAPublicKey)pubKey).getY().toByteArray();
+    d=((RSAPrivateKey)prvKey).getPrivateExponent().toByteArray();
+    e=((RSAPublicKey)pubKey).getPublicExponent().toByteArray();
+    n=((RSAPrivateKey)prvKey).getModulus().toByteArray();
 
-    DSAParams params=((DSAKey)prvKey).getParams();
-    p=params.getP().toByteArray();
-    q=params.getQ().toByteArray();
-    g=params.getG().toByteArray();
+    c=((RSAPrivateCrtKey)prvKey).getCrtCoefficient().toByteArray();
+    ep=((RSAPrivateCrtKey)prvKey).getPrimeExponentP().toByteArray();
+    eq=((RSAPrivateCrtKey)prvKey).getPrimeExponentQ().toByteArray();
+    p=((RSAPrivateCrtKey)prvKey).getPrimeP().toByteArray();
+    q=((RSAPrivateCrtKey)prvKey).getPrimeQ().toByteArray();
   }
-  public byte[] getX(){return x;}
-  public byte[] getY(){return y;}
+  public byte[] getD(){return d;}
+  public byte[] getE(){return e;}
+  public byte[] getN(){return n;}
+  public byte[] getC(){return c;}
+  public byte[] getEP(){return ep;}
+  public byte[] getEQ(){return eq;}
   public byte[] getP(){return p;}
   public byte[] getQ(){return q;}
-  public byte[] getG(){return g;}
 }

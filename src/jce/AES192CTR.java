@@ -27,21 +27,19 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-package com.jcraft.jsch.jce;
+package jce;
 
 import ssh.Cipher;
-import javax.crypto.*;
 import javax.crypto.spec.*;
 
-public class TripleDESCTR implements Cipher{
-  private static final int ivsize=8;
+public class AES192CTR implements Cipher{
+  private static final int ivsize=16;
   private static final int bsize=24;
   private javax.crypto.Cipher cipher;    
   public int getIVSize(){return ivsize;} 
   public int getBlockSize(){return bsize;}
   public void init(int mode, byte[] key, byte[] iv) throws Exception{
     String pad="NoPadding";      
-    //if(padding) pad="PKCS5Padding";
     byte[] tmp;
     if(iv.length>ivsize){
       tmp=new byte[ivsize];
@@ -53,24 +51,13 @@ public class TripleDESCTR implements Cipher{
       System.arraycopy(key, 0, tmp, 0, tmp.length);
       key=tmp;
     }
-
     try{
-      cipher=javax.crypto.Cipher.getInstance("DESede/CTR/"+pad);
-/*
-      // The following code does not work on IBM's JDK 1.4.1
-      SecretKeySpec skeySpec = new SecretKeySpec(key, "DESede");
+      SecretKeySpec keyspec=new SecretKeySpec(key, "AES");
+      cipher=javax.crypto.Cipher.getInstance("AES/CTR/"+pad);
       cipher.init((mode==ENCRYPT_MODE?
-		   javax.crypto.Cipher.ENCRYPT_MODE:
-		   javax.crypto.Cipher.DECRYPT_MODE),
-		  skeySpec, new IvParameterSpec(iv));
-*/
-      DESedeKeySpec keyspec=new DESedeKeySpec(key);
-      SecretKeyFactory keyfactory=SecretKeyFactory.getInstance("DESede");
-      SecretKey _key=keyfactory.generateSecret(keyspec);
-      cipher.init((mode==ENCRYPT_MODE?
-		   javax.crypto.Cipher.ENCRYPT_MODE:
-		   javax.crypto.Cipher.DECRYPT_MODE),
-		  _key, new IvParameterSpec(iv));
+                   javax.crypto.Cipher.ENCRYPT_MODE:
+                   javax.crypto.Cipher.DECRYPT_MODE),
+                  keyspec, new IvParameterSpec(iv));
     }
     catch(Exception e){
       cipher=null;

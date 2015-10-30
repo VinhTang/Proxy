@@ -27,14 +27,14 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-package com.jcraft.jsch.jce;
+package jce;
 
 import ssh.Cipher;
 import javax.crypto.spec.*;
 
-public class AES256CBC implements Cipher{
+public class AES192CBC implements Cipher{
   private static final int ivsize=16;
-  private static final int bsize=32;
+  private static final int bsize=24;
   private javax.crypto.Cipher cipher;    
   public int getIVSize(){return ivsize;} 
   public int getBlockSize(){return bsize;}

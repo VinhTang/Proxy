@@ -1,6 +1,6 @@
 /* -*-mode:java; c-basic-offset:2; indent-tabs-mode:nil -*- */
 /*
-Copyright (c) 2005-2010 ymnk, JCraft,Inc. All rights reserved.
+Copyright (c) 2008-2010 ymnk, JCraft,Inc. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -27,37 +27,37 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-package com.jcraft.jsch.jce;
+package jce;
 
 import ssh.Cipher;
+import javax.crypto.*;
 import javax.crypto.spec.*;
 
-public class AES192CBC implements Cipher{
-  private static final int ivsize=16;
-  private static final int bsize=24;
+public class ARCFOUR256 implements Cipher{
+  private static final int ivsize=8;
+  private static final int bsize=32;
+  private static final int skip=1536; 
   private javax.crypto.Cipher cipher;    
   public int getIVSize(){return ivsize;} 
   public int getBlockSize(){return bsize;}
   public void init(int mode, byte[] key, byte[] iv) throws Exception{
-    String pad="NoPadding";      
     byte[] tmp;
-    if(iv.length>ivsize){
-      tmp=new byte[ivsize];
-      System.arraycopy(iv, 0, tmp, 0, tmp.length);
-      iv=tmp;
-    }
     if(key.length>bsize){
       tmp=new byte[bsize];
       System.arraycopy(key, 0, tmp, 0, tmp.length);
       key=tmp;
     }
     try{
-      SecretKeySpec keyspec=new SecretKeySpec(key, "AES");
-      cipher=javax.crypto.Cipher.getInstance("AES/CBC/"+pad);
+      cipher=javax.crypto.Cipher.getInstance("RC4");
+      SecretKeySpec _key = new SecretKeySpec(key, "RC4");
       cipher.init((mode==ENCRYPT_MODE?
-                   javax.crypto.Cipher.ENCRYPT_MODE:
-                   javax.crypto.Cipher.DECRYPT_MODE),
-                  keyspec, new IvParameterSpec(iv));
+		   javax.crypto.Cipher.ENCRYPT_MODE:
+		   javax.crypto.Cipher.DECRYPT_MODE),
+		  _key);
+      byte[] foo=new byte[1];
+      for(int i=0; i<skip; i++){
+        cipher.update(foo, 0, 1, foo, 0);
+      }
     }
     catch(Exception e){
       cipher=null;
@@ -67,5 +67,5 @@ public class AES192CBC implements Cipher{
   public void update(byte[] foo, int s1, int len, byte[] bar, int s2) throws Exception{
     cipher.update(foo, s1, len, bar, s2);
   }
-  public boolean isCBC(){return true; }
+  public boolean isCBC(){return false; }
 }

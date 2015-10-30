@@ -4,7 +4,6 @@
  * and open the template in the editor.
  */
 package ssh;
-    import com.jcraft.jsch.jce.*;
 /**
  *
  * @author Milky_Way
@@ -42,34 +41,34 @@ public class Configure {
         config.put("diffie-hellman-group1-sha1",
                 "com.jcraft.jsch.DHG1");
 
-        config.put("dh", "com.jcraft.jsch.jce.DH");
-        config.put("3des-cbc", "com.jcraft.jsch.jce.TripleDESCBC");
-        config.put("blowfish-cbc", "com.jcraft.jsch.jce.BlowfishCBC");
-        config.put("hmac-sha1", "com.jcraft.jsch.jce.HMACSHA1");
-        config.put("hmac-sha1-96", "com.jcraft.jsch.jce.HMACSHA196");
-        config.put("hmac-md5", "com.jcraft.jsch.jce.HMACMD5");
-        config.put("hmac-md5-96", "com.jcraft.jsch.jce.HMACMD596");
-        config.put("sha-1", "com.jcraft.jsch.jce.SHA1");
-        config.put("md5", "com.jcraft.jsch.jce.MD5");
-        config.put("signature.dss", "com.jcraft.jsch.jce.SignatureDSA");
-        config.put("signature.rsa", "com.jcraft.jsch.jce.SignatureRSA");
-        config.put("keypairgen.dsa", "com.jcraft.jsch.jce.KeyPairGenDSA");
-        config.put("keypairgen.rsa", "com.jcraft.jsch.jce.KeyPairGenRSA");
-        config.put("random", "com.jcraft.jsch.jce.Random");
+        config.put("dh", "jce.DH");
+        config.put("3des-cbc", "jce.TripleDESCBC");
+        config.put("blowfish-cbc", "jce.BlowfishCBC");
+        config.put("hmac-sha1", "jce.HMACSHA1");
+        config.put("hmac-sha1-96", "jce.HMACSHA196");
+        config.put("hmac-md5", "jce.HMACMD5");
+        config.put("hmac-md5-96", "jce.HMACMD596");
+        config.put("sha-1", "jce.SHA1");
+        config.put("md5", "jce.MD5");
+        config.put("signature.dss", "jce.SignatureDSA");
+        config.put("signature.rsa", "jce.SignatureRSA");
+        config.put("keypairgen.dsa", "jce.KeyPairGenDSA");
+        config.put("keypairgen.rsa", "jce.KeyPairGenRSA");
+        config.put("random", "jce.Random");
 
         config.put("none", "com.jcraft.jsch.CipherNone");
 
-        config.put("aes128-cbc", "com.jcraft.jsch.jce.AES128CBC");
-        config.put("aes192-cbc", "com.jcraft.jsch.jce.AES192CBC");
-        config.put("aes256-cbc", "com.jcraft.jsch.jce.AES256CBC");
+        config.put("aes128-cbc", "jce.AES128CBC");
+        config.put("aes192-cbc", "jce.AES192CBC");
+        config.put("aes256-cbc", "jce.AES256CBC");
 
-        config.put("aes128-ctr", "com.jcraft.jsch.jce.AES128CTR");
-        config.put("aes192-ctr", "com.jcraft.jsch.jce.AES192CTR");
-        config.put("aes256-ctr", "com.jcraft.jsch.jce.AES256CTR");
-        config.put("3des-ctr", "com.jcraft.jsch.jce.TripleDESCTR");
-        config.put("arcfour", "com.jcraft.jsch.jce.ARCFOUR");
-        config.put("arcfour128", "com.jcraft.jsch.jce.ARCFOUR128");
-        config.put("arcfour256", "com.jcraft.jsch.jce.ARCFOUR256");
+        config.put("aes128-ctr", "jce.AES128CTR");
+        config.put("aes192-ctr", "jce.AES192CTR");
+        config.put("aes256-ctr", "jce.AES256CTR");
+        config.put("3des-ctr", "jce.TripleDESCTR");
+        config.put("arcfour", "jce.ARCFOUR");
+        config.put("arcfour128", "jce.ARCFOUR128");
+        config.put("arcfour256", "jce.ARCFOUR256");
 
         config.put("userauth.none", "com.jcraft.jsch.UserAuthNone");
         config.put("userauth.password", "com.jcraft.jsch.UserAuthPassword");
@@ -95,6 +94,7 @@ public class Configure {
 
         try {
             String osname = (String) (System.getProperties().get("os.name"));
+
             if (osname != null && osname.equals("Mac OS X")) {
                 config.put("hmac-sha1", "com.jcraft.jsch.jcraft.HMACSHA1");
                 config.put("hmac-md5", "com.jcraft.jsch.jcraft.HMACMD5");

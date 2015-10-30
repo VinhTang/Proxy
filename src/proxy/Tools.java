@@ -115,19 +115,14 @@ public class Tools {
         loop:
         for (int i = 0; i < stra.length; i++) {
             for (int j = 0; j < not_available.length; j++) {
-                //System.err.println("stra[i].equals(not_available[j]): diffString(String str, String[] not_available) "+stra[i].equals(not_available[j]));
                 if (stra[i].equals(not_available[j])) {
-                    //System.err.println("loop! diffString(String str, String[] not_available)");
-                    System.err.println("loop! stra[i]: "+stra[i] +"!!!!  "+ not_available[j]);
                     continue loop;
                 }
             }
             if (result == null) {
                 result = stra[i];
-                System.err.println("result = stra[i]; : "+ result);
             } else {
                 result = result + "," + stra[i];
-                System.err.println("result = stra[i];  != null : "+ result);
             }
         }
         return result;

@@ -27,7 +27,7 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-package com.jcraft.jsch.jce;
+package jce;
 
 import ssh.Cipher;
 import javax.crypto.spec.*;
@@ -41,6 +41,7 @@ public class AES128CTR implements Cipher{
   public void init(int mode, byte[] key, byte[] iv) throws Exception{
     String pad="NoPadding";      
     byte[] tmp;
+      System.err.println("iv.length: "+ iv.length+"! key.length: "+key.length);
     if(iv.length>ivsize){
       tmp=new byte[ivsize];
       System.arraycopy(iv, 0, tmp, 0, tmp.length);

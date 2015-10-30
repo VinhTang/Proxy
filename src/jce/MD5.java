@@ -27,49 +27,25 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-package com.jcraft.jsch.jce;
+package jce;
 
-import ssh.MAC;
-import javax.crypto.*;
-import javax.crypto.spec.*;
+import ssh.HASH;
 
-public class HMACMD5 implements MAC{
-  private static final String name="hmac-md5";
-  private static final int BSIZE=16;
-  private Mac mac;
-  public int getBlockSize(){return BSIZE;};
-  public void init(byte[] key) throws Exception{
-    if(key.length>BSIZE){
-      byte[] tmp=new byte[BSIZE];
-      System.arraycopy(key, 0, tmp, 0, BSIZE);	  
-      key=tmp;
-    }
+import java.security.*;
 
-    SecretKeySpec skey=new SecretKeySpec(key, "HmacMD5");
-    mac=Mac.getInstance("HmacMD5");
-    mac.init(skey);
-  } 
-
-  private final byte[] tmp=new byte[4];
-  public void update(int i){
-    tmp[0]=(byte)(i>>>24);
-    tmp[1]=(byte)(i>>>16);
-    tmp[2]=(byte)(i>>>8);
-    tmp[3]=(byte)i;
-    update(tmp, 0, 4);
-  }
-  public void update(byte foo[], int s, int l){
-    mac.update(foo, s, l);      
-  }
-  public void doFinal(byte[] buf, int offset){
-    try{
-      mac.doFinal(buf, offset);
-    }
-    catch(ShortBufferException e){
+public class MD5 implements HASH{
+  MessageDigest md;
+  public int getBlockSize(){return 16;}
+  public void init() throws Exception{
+    try{ md=MessageDigest.getInstance("MD5"); }
+    catch(Exception e){
+      System.err.println(e);
     }
   }
-
-  public String getName(){
-    return name;
+  public void update(byte[] foo, int start, int len) throws Exception{
+    md.update(foo, start, len);
+  }
+  public byte[] digest() throws Exception{
+    return md.digest();
   }
 }

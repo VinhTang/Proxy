@@ -27,25 +27,25 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-package com.jcraft.jsch.jce;
+package jce;
 
 import ssh.MAC;
 import javax.crypto.*;
 import javax.crypto.spec.*;
 
-public class HMACMD596 implements MAC{
-  private static final String name="hmac-md5-96";
+public class HMACSHA196 implements MAC{
+  private static final String name="hmac-sha1-96";
   private static final int bsize=12;
   private Mac mac;
   public int getBlockSize(){return bsize;};
   public void init(byte[] key) throws Exception{
-    if(key.length>16){
-      byte[] tmp=new byte[16];
-      System.arraycopy(key, 0, tmp, 0, 16);	  
+    if(key.length>20){
+      byte[] tmp=new byte[20];
+      System.arraycopy(key, 0, tmp, 0, 20);	  
       key=tmp;
     }
-    SecretKeySpec skey=new SecretKeySpec(key, "HmacMD5");
-    mac=Mac.getInstance("HmacMD5");
+    SecretKeySpec skey=new SecretKeySpec(key, "HmacSHA1");
+    mac=Mac.getInstance("HmacSHA1");
     mac.init(skey);
   } 
   private final byte[] tmp=new byte[4];
@@ -56,19 +56,18 @@ public class HMACMD596 implements MAC{
     tmp[3]=(byte)i;
     update(tmp, 0, 4);
   }
-
   public void update(byte foo[], int s, int l){
     mac.update(foo, s, l);      
   }
 
-  private final byte[] _buf16=new byte[16];
+  private final byte[] _buf20=new byte[20];
   public void doFinal(byte[] buf, int offset){
     try{
-      mac.doFinal(_buf16, 0);
+      mac.doFinal(_buf20, 0);
     }
     catch(ShortBufferException e){
     }
-    System.arraycopy(_buf16, 0, buf, offset, 12);
+    System.arraycopy(_buf20, 0, buf, offset, 12);
   }
 
   public String getName(){

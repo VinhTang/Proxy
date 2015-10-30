@@ -204,6 +204,7 @@ public class Buffer {
     public void reset() {
         index = 0;
         s = 0;
+        
     }
 
     public void shift() {
