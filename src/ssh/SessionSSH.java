@@ -5,9 +5,12 @@
  */
 package ssh;
 
+import java.io.IOException;
+
 import proxy.Logs;
 import proxy.Proxy;
 import proxy.Tools;
+
 
 /**
  *
@@ -18,6 +21,7 @@ public class SessionSSH {
     static private final String version = "SSH Proxy";
     ////////////////////////////////////////////////////////////////////////////
     public Proxy Parent = null;
+    protected Object bucket;
 
     static final int SSH_MSG_DISCONNECT = 1;
     static final int SSH_MSG_IGNORE = 2;
@@ -73,8 +77,13 @@ public class SessionSSH {
     Packet packet;
     static Cookie cookie;   // cookie
     String[] guess = null;
+
     private Cipher s2ccipher;
     private Cipher c2scipher;
+    private MAC s2cmac;
+    private MAC c2smac;
+    private Compression deflater;
+    private Compression inflater;
     //private byte[] mac_buf;
     private byte[] s2cmac_result1;
     private byte[] s2cmac_result2;
@@ -101,11 +110,18 @@ public class SessionSSH {
 
     private long kex_start_time = 0L;
 
+    //----------------------------------------------
+    public int getTimeout() {
+        return timeout;
+    }
+
     ////////////////////////////////////////////////////////////////////////////
     public SessionSSH(Proxy proxy) {
+        bucket = this;
         Parent = proxy;
         buf = new Buffer();
         packet = new Packet(buf);
+
     }
 
     public void Connect() throws Exception {
@@ -194,11 +210,14 @@ public class SessionSSH {
 
         String cipherc2s = getConfig("cipher.c2s");
         String ciphers2c = getConfig("cipher.s2c");
-
+        System.err.println("getConfig(\"CheckCiphers\"): send_kexinit() "+ getConfig("CheckCiphers"));
         String[] not_available = checkCiphers(getConfig("CheckCiphers"));
+        System.err.println("not_available: "+not_available);
         if (not_available != null && not_available.length > 0) {
             cipherc2s = Tools.diffString(cipherc2s, not_available);
             ciphers2c = Tools.diffString(ciphers2c, not_available);
+            System.err.println("cipherc2s: send_kexinit() "+cipherc2s);
+            System.err.println("ciphers2c: send_kexinit() "+ciphers2c);
             if (cipherc2s == null || ciphers2c == null) {
                 Logs.Println("There are not any available ciphers.");
             }
@@ -222,7 +241,7 @@ public class SessionSSH {
         Buffer buf = new Buffer();                // send_kexinit may be invoked
         Packet packet = new Packet(buf);          // by user thread.
         packet.reset();
-        
+
         buf.putByte((byte) SSH_MSG_KEXINIT);
         synchronized (cookie) {
             cookie.fill(buf.buffer, buf.index, 16);
@@ -291,12 +310,8 @@ public class SessionSSH {
 
         System.arraycopy(result.toArray(), 0, foo, 0, result.size());
 
-        if (JSch.getLogger()
-                .isEnabled(Logger.INFO)) {
-            for (int i = 0; i < foo.length; i++) {
-                JSch.getLogger().log(Logger.INFO,
-                        foo[i] + " is not available.");
-            }
+        for (int i = 0; i < foo.length; i++) {
+            Logs.Println(foo[i] + " is not available.");
         }
 
         return foo;
@@ -305,6 +320,7 @@ public class SessionSSH {
 //--------------------------------------------------------------------------
     static boolean checkCipher(String cipher) {
         try {
+            System.err.println("cipher: checkCipher(String cipher)"+cipher);
             Class c = Class.forName(cipher);
             Cipher _c = (Cipher) (c.newInstance());
             _c.init(Cipher.ENCRYPT_MODE,
@@ -316,9 +332,88 @@ public class SessionSSH {
 
         }
     }
+//--------------------------------------------------------------------------
 
-////////////////////////////////////////////////////////////////////////////
-//----------------
+    public void write(Packet packet) throws Exception {
+        // System.err.println("in_kex="+in_kex+" "+(packet.buffer.getCommand()));
+        long t = getTimeout();
+        while (in_kex) {
+            if (t > 0L && (System.currentTimeMillis() - kex_start_time) > t) {
+                Logs.Error("timeout in wating for rekeying process.");
+            }
+            byte command = packet.buffer.getCommand();
+            //System.err.println("command: "+command);
+            if (command == SSH_MSG_KEXINIT
+                    || command == SSH_MSG_NEWKEYS
+                    || command == SSH_MSG_KEXDH_INIT
+                    || command == SSH_MSG_KEXDH_REPLY
+                    || command == SSH_MSG_KEX_DH_GEX_GROUP
+                    || command == SSH_MSG_KEX_DH_GEX_INIT
+                    || command == SSH_MSG_KEX_DH_GEX_REPLY
+                    || command == SSH_MSG_KEX_DH_GEX_REQUEST
+                    || command == SSH_MSG_DISCONNECT) {
+                break;
+            }
+            try {
+                Thread.sleep(10);
+            } catch (java.lang.InterruptedException e) {
+            };
+        }
+        _write(packet);
+    }
+
+    //-----------------------------------------------------
+    private void _write(Packet packet) throws Exception {
+        synchronized (bucket) {
+
+            encode(packet);
+            if (Parent.ClientOutput != null) {
+                put(packet);
+                seqo++;
+            }
+        }
+    }
+
+    //-----------------------------------------------------
+    private int s2ccipher_size = 8;
+    private int c2scipher_size = 8;
+
+    public void encode(Packet packet) throws Exception {
+
+        if (deflater != null) {
+            packet.buffer.index = deflater.compress(packet.buffer.buffer, 5, packet.buffer.index);
+        }
+
+        if (c2scipher != null) {
+            //packet.padding(c2scipher.getIVSize());
+            packet.padding(c2scipher_size);
+            int pad = packet.buffer.buffer[4];
+            synchronized (cookie) {
+                cookie.fill(packet.buffer.buffer, packet.buffer.index - pad, pad);
+            }
+        } else {
+            packet.padding(8);
+        }
+        System.err.println("c2smac: "+c2smac);
+        if (c2smac != null) {
+            c2smac.update(seqo);
+            c2smac.update(packet.buffer.buffer, 0, packet.buffer.index);
+            c2smac.doFinal(packet.buffer.buffer, packet.buffer.index);
+        }
+        System.err.println("c2scipher: "+c2scipher);
+        if (c2scipher != null) {
+            byte[] buf = packet.buffer.buffer;
+            c2scipher.update(buf, 0, packet.buffer.index, buf, 0);
+        }
+        
+        System.err.println("c2smac: "+c2smac);
+        if (c2smac != null) {
+            packet.buffer.skip(c2smac.getBlockSize());
+        }
+    }
+////////////////////////////////////////////////////////////////////////////////
+    //----------------
+
     protected byte GetByte() {
         byte b;
         try {
@@ -330,4 +425,22 @@ public class SessionSSH {
         return b;
     }
 
+    //------------------
+    public void put(Packet p) throws IOException, java.net.SocketException {
+        Parent.ClientOutput.write(p.buffer.buffer, 0, p.buffer.index);
+        Parent.ClientOutput.flush();
+    }
+
+    //------------------
+
+    void put(byte[] array, int begin, int length) throws IOException {
+        Parent.ClientOutput.write(array, begin, length);
+        Parent.ClientOutput.flush();
+    }
+    //------------------
+//    void put_ext(byte[] array, int begin, int length) throws IOException {
+//        Parent.ClientOutput.write(array, begin, length);
+//        Parent.ClientOutput.flush();
+//    }
+////////////////////////////////////////////////////////////////////////////////
 }

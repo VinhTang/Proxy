@@ -179,7 +179,6 @@ public class Proxy extends Thread {
 
     //----------------------------------------
     public void SendToClient(byte[] Buf) {
-
         SendToClient(Buf, Buf.length);
     }
 

@@ -4,15 +4,16 @@
  * and open the template in the editor.
  */
 package ssh;
-
+    import com.jcraft.jsch.jce.*;
 /**
  *
  * @author Milky_Way
  */
+    
 public class Configure {
-
+    
     static java.util.Hashtable config = new java.util.Hashtable();
-
+    
     static {
 //  config.put("kex", "diffie-hellman-group-exchange-sha1");
         config.put("kex", "diffie-hellman-group1-sha1,diffie-hellman-group-exchange-sha1");
@@ -89,17 +90,6 @@ public class Configure {
     }
     java.util.Vector pool = new java.util.Vector();
     java.util.Vector identities = new java.util.Vector();
-    //private HostKeyRepository known_hosts = null;
-
-//    private static final Logger DEVNULL = new Logger() {
-//        public boolean isEnabled(int level) {
-//            return false;
-//        }
-//
-//        public void log(int level, String message) {
-//        }
-//    };
-//    static Logger logger = DEVNULL;
 
     public Configure() {
 
@@ -116,14 +106,6 @@ public class Configure {
 
     }
 
-
-
-    public static String getConfig(String key) {
-        synchronized (config) {
-            return (String) (config.get(key));
-        }
-    }
-
     public static void setConfig(java.util.Hashtable newconf) {
         synchronized (config) {
             for (java.util.Enumeration e = newconf.keys(); e.hasMoreElements();) {
@@ -135,6 +117,12 @@ public class Configure {
 
     public static void setConfig(String key, String value) {
         config.put(key, value);
+    }
+
+    public static String getConfig(String key) {
+        synchronized (config) {
+            return (String) (config.get(key));
+        }
     }
 
 }
