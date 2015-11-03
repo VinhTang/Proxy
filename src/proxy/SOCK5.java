@@ -225,7 +225,7 @@ public class SOCK5 extends SOCK4 {
             Username += (char) GetByte();
         }
         User = Username.getBytes();
-        Username = Tools.byte2String(User);
+        Username = Tools.byte2str(User);
 
         //Password
         int Passlen = Tools.byte2int(GetByte());
@@ -235,7 +235,7 @@ public class SOCK5 extends SOCK4 {
             Password += (char) GetByte();
         }
         User = Password.getBytes();
-        Password = Tools.byte2String(User);
+        Password = Tools.byte2str(User);
 
         Logs.Println("Username: " + Username + " .Password: " + Password);
     }

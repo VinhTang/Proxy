@@ -21,7 +21,7 @@ public abstract class KeyExchange {
     static final int PROPOSAL_LANG_STOC = 9;
     static final int PROPOSAL_MAX = 10;
 
-  //static String kex_algs="diffie-hellman-group-exchange-sha1"+
+    //static String kex_algs="diffie-hellman-group-exchange-sha1"+
     //                       ",diffie-hellman-group1-sha1";
 //static String kex="diffie-hellman-group-exchange-sha1";
     static String kex = "diffie-hellman-group1-sha1";
@@ -38,7 +38,7 @@ public abstract class KeyExchange {
 
     public static final int STATE_END = 0;
 
-//  protected HASH sha=null;
+    protected HASH sha = null;
     protected byte[] K = null;
     protected byte[] H = null;
     protected byte[] K_S = null;
@@ -126,17 +126,30 @@ public abstract class KeyExchange {
         return guess;
     }
 
-//  public String getFingerPrint(){
-//    HASH hash=null;
-//    try{
-//      Class c=Class.forName(session.getConfig("md5"));
-//      hash=(HASH)(c.newInstance());
-//    }
-//    catch(Exception e){ System.err.println("getFingerPrint: "+e); }
-//    return Util.getFingerPrint(hash, getHostKey());
-//  }
-//  byte[] getK(){ return K; }
-//  byte[] getH(){ return H; }
-//  HASH getHash(){ return sha; }
-//  byte[] getHostKey(){ return K_S; }
+    public String getFingerPrint() {
+        HASH hash = null;
+        try {
+            Class c = Class.forName(Configure.getConfig("md5"));
+            hash = (HASH) (c.newInstance());
+        } catch (Exception e) {
+            System.err.println("getFingerPrint: " + e);
+        }
+        return proxy.Tools.getFingerPrint(hash, getHostKey());
+    }
+
+    byte[] getK() {
+        return K;
+    }
+
+    byte[] getH() {
+        return H;
+    }
+
+    HASH getHash() {
+        return sha;
+    }
+
+    byte[] getHostKey() {
+        return K_S;
+    }
 }

@@ -27,22 +27,21 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-package com.jcraft.jsch.jcraft;
+package jcraft;
 
 import ssh.MAC;
-import java.security.*;
 
-public class HMACSHA1 extends HMAC implements MAC{
-  private static final String name="hmac-sha1";
+public class HMACMD596 extends HMACMD5{
 
-  public HMACSHA1(){
-    super();
-    MessageDigest md=null;
-    try{ md=MessageDigest.getInstance("SHA-1"); }
-    catch(Exception e){
-      System.err.println(e);
-    }
-    setH(md);
+  private static final String name="hmac-md5-96";
+  private static final int BSIZE=12;
+
+  public int getBlockSize(){return BSIZE;};
+
+  private final byte[] _buf16=new byte[16];
+  public void doFinal(byte[] buf, int offset){
+    super.doFinal(_buf16, 0);
+    System.arraycopy(_buf16, 0, buf, offset, BSIZE);
   }
 
   public String getName(){

@@ -25,13 +25,14 @@ public class AES256CBC implements Cipher{
       key=tmp;
     }
     try{
+        //System.err.println("AES 256 CBC: "+ key.length +" ------- " +iv);
       SecretKeySpec keyspec=new SecretKeySpec(key, "AES");
       cipher=javax.crypto.Cipher.getInstance("AES/CBC/"+pad);
       cipher.init((mode==ENCRYPT_MODE?
                    javax.crypto.Cipher.ENCRYPT_MODE:
                    javax.crypto.Cipher.DECRYPT_MODE),
                   keyspec, new IvParameterSpec(iv));
-        System.err.println("XONg  AES 256 CBC");
+        
     }
     catch(Exception e){
       cipher=null;

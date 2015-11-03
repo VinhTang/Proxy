@@ -159,7 +159,7 @@ public class SOCK4 {
         String s = UID + " ";
 
         UserID = s.getBytes();
-        Logs.Println("USERID : " + Tools.byte2String(UserID));
+        Logs.Println("USERID : " + Tools.byte2str(UserID));
         // Send USerID to check role
         //UserID[UserID.length - 1] = 0x00;
     }

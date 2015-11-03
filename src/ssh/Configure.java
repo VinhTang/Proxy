@@ -37,9 +37,8 @@ public class Configure {
         config.put("compression_level", "6");
 
         config.put("diffie-hellman-group-exchange-sha1",
-                "com.jcraft.jsch.DHGEX");
-        config.put("diffie-hellman-group1-sha1",
-                "com.jcraft.jsch.DHG1");
+                "jcraft.DHGEX");
+        config.put("diffie-hellman-group1-sha1","ssh.DHG1");
 
         config.put("dh", "jce.DH");
         config.put("3des-cbc", "jce.TripleDESCBC");
@@ -56,7 +55,7 @@ public class Configure {
         config.put("keypairgen.rsa", "jce.KeyPairGenRSA");
         config.put("random", "jce.Random");
 
-        config.put("none", "com.jcraft.jsch.CipherNone");
+        config.put("none", "jcraft.CipherNone");
 
         config.put("aes128-cbc", "jce.AES128CBC");
         config.put("aes192-cbc", "jce.AES192CBC");
@@ -70,15 +69,15 @@ public class Configure {
         config.put("arcfour128", "jce.ARCFOUR128");
         config.put("arcfour256", "jce.ARCFOUR256");
 
-        config.put("userauth.none", "com.jcraft.jsch.UserAuthNone");
-        config.put("userauth.password", "com.jcraft.jsch.UserAuthPassword");
-        config.put("userauth.keyboard-interactive", "com.jcraft.jsch.UserAuthKeyboardInteractive");
-        config.put("userauth.publickey", "com.jcraft.jsch.UserAuthPublicKey");
-        config.put("userauth.gssapi-with-mic", "com.jcraft.jsch.UserAuthGSSAPIWithMIC");
-        config.put("gssapi-with-mic.krb5", "com.jcraft.jsch.jgss.GSSContextKrb5");
+        config.put("userauth.none", "jcraft.UserAuthNone");
+        config.put("userauth.password", "jcraft.UserAuthPassword");
+        config.put("userauth.keyboard-interactive", "jcraft.UserAuthKeyboardInteractive");
+        config.put("userauth.publickey", "jcraft.UserAuthPublicKey");
+        config.put("userauth.gssapi-with-mic", "jcraft.UserAuthGSSAPIWithMIC");
+        config.put("gssapi-with-mic.krb5", "jcraft.jgss.GSSContextKrb5");
 
-        config.put("zlib", "com.jcraft.jsch.jcraft.Compression");
-        config.put("zlib@openssh.com", "com.jcraft.jsch.jcraft.Compression");
+        config.put("zlib", "jcraft.jcraft.Compression");
+        config.put("zlib@openssh.com", "jcraft.jcraft.Compression");
 
         config.put("StrictHostKeyChecking", "ask");
         config.put("HashKnownHosts", "no");
@@ -96,10 +95,10 @@ public class Configure {
             String osname = (String) (System.getProperties().get("os.name"));
 
             if (osname != null && osname.equals("Mac OS X")) {
-                config.put("hmac-sha1", "com.jcraft.jsch.jcraft.HMACSHA1");
-                config.put("hmac-md5", "com.jcraft.jsch.jcraft.HMACMD5");
-                config.put("hmac-md5-96", "com.jcraft.jsch.jcraft.HMACMD596");
-                config.put("hmac-sha1-96", "com.jcraft.jsch.jcraft.HMACSHA196");
+                config.put("hmac-sha1", "jcraft.jcraft.HMACSHA1");
+                config.put("hmac-md5", "jcraft.jcraft.HMACMD5");
+                config.put("hmac-md5-96", "jcraft.jcraft.HMACMD596");
+                config.put("hmac-sha1-96", "jcraft.jcraft.HMACSHA196");
             }
         } catch (Exception e) {
         }

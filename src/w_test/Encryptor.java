@@ -13,7 +13,8 @@ import org.apache.commons.codec.binary.Base64;
 public class Encryptor {
     public static String encrypt(String key, String initVector, String value) {
         try {
-            IvParameterSpec iv = new IvParameterSpec(initVector.getBytes("UTF-8"));
+            //IvParameterSpec iv = new IvParameterSpec(initVector.getBytes("UTF-8"));
+            IvParameterSpec iv = new IvParameterSpec(new byte[32]);
             SecretKeySpec skeySpec = new SecretKeySpec(key.getBytes("UTF-8"), "AES");
 
             
@@ -51,7 +52,8 @@ public class Encryptor {
     }
 
     public static void main(String[] args) {
-        String key = "Bar12345Bar12345RandomInitVector"; // 128 bit key
+        //String key = "Bar12345Bar12345"; // 128 bit key
+        String key = "Bar12345Bar12345";
         String initVector = "RandomInitVector"; // 16 bytes IV
 
         System.out.println(decrypt(key, initVector,

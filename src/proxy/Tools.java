@@ -8,6 +8,7 @@ package proxy;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Properties;
+import ssh.HASH;
 
 /**
  *
@@ -77,7 +78,7 @@ public class Tools {
         return i;
     }
 
-    public static String byte2String(byte[] b) {
+    public static String byte2str(byte[] b) {
         String str = new String(b, 0, b.length);
         return str;
     }
@@ -193,5 +194,29 @@ public class Tools {
 //        return ((byte2int(Hi) << 8) | byte2int(Lo));
 //    }
 ////////////////////////////////////////////////////////////////////////////////
+    private static String[] chars = {
+        "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"
+    };
 
+    public static String getFingerPrint(HASH hash, byte[] data) {
+        try {
+            hash.init();
+            hash.update(data, 0, data.length);
+            byte[] foo = hash.digest();
+            StringBuffer sb = new StringBuffer();
+            int bar;
+            for (int i = 0; i < foo.length; i++) {
+                bar = foo[i] & 0xff;
+
+                sb.append(chars[(bar >>> 4) & 0xf]);
+                sb.append(chars[(bar) & 0xf]);
+                if (i + 1 < foo.length) {
+                    sb.append(":");
+                }
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            return "???";
+        }
+    }
 }
