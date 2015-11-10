@@ -1,12 +1,10 @@
+package ssh;
+
 /*
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package ssh;
-
-import proxy.Tools;
-
 public abstract class KeyExchange {
 
     static final int PROPOSAL_KEX_ALGS = 0;
@@ -21,7 +19,7 @@ public abstract class KeyExchange {
     static final int PROPOSAL_LANG_STOC = 9;
     static final int PROPOSAL_MAX = 10;
 
-    //static String kex_algs="diffie-hellman-group-exchange-sha1"+
+  //static String kex_algs="diffie-hellman-group-exchange-sha1"+
     //                       ",diffie-hellman-group1-sha1";
 //static String kex="diffie-hellman-group-exchange-sha1";
     static String kex = "diffie-hellman-group1-sha1";
@@ -38,13 +36,16 @@ public abstract class KeyExchange {
 
     public static final int STATE_END = 0;
 
+    protected SessionSSH session = null;
     protected HASH sha = null;
     protected byte[] K = null;
     protected byte[] H = null;
     protected byte[] K_S = null;
 
-    public abstract void init(
+    public abstract void init(SessionSSH session,
             byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws Exception;
+
+    public abstract boolean next(Buffer buf) throws Exception;
 
     public abstract String getKeyType();
 
@@ -108,18 +109,17 @@ public abstract class KeyExchange {
             }
         }
 
-//    if(JSch.getLogger().isEnabled(Logger.INFO)){
-//      JSch.getLogger().log(Logger.INFO, 
-//                           "kex: server->client"+
-//                           " "+guess[PROPOSAL_ENC_ALGS_STOC]+
-//                           " "+guess[PROPOSAL_MAC_ALGS_STOC]+
-//                           " "+guess[PROPOSAL_COMP_ALGS_STOC]);
-//      JSch.getLogger().log(Logger.INFO, 
-//                           "kex: client->server"+
-//                           " "+guess[PROPOSAL_ENC_ALGS_CTOS]+
-//                           " "+guess[PROPOSAL_MAC_ALGS_CTOS]+
-//                           " "+guess[PROPOSAL_COMP_ALGS_CTOS]);
-//    }
+        proxy.Logs.Println(proxy.Logger.INFO,
+                "kex: server->client"
+                + " " + guess[PROPOSAL_ENC_ALGS_STOC]
+                + " " + guess[PROPOSAL_MAC_ALGS_STOC]
+                + " " + guess[PROPOSAL_COMP_ALGS_STOC]);
+        proxy.Logs.Println(proxy.Logger.INFO,
+                "kex: client->server"
+                + " " + guess[PROPOSAL_ENC_ALGS_CTOS]
+                + " " + guess[PROPOSAL_MAC_ALGS_CTOS]
+                + " " + guess[PROPOSAL_COMP_ALGS_CTOS]);
+
 //    for(int i=0; i<PROPOSAL_MAX; i++){
 //      System.err.println("guess: ["+guess[i]+"]");
 //    }
@@ -129,7 +129,7 @@ public abstract class KeyExchange {
     public String getFingerPrint() {
         HASH hash = null;
         try {
-            Class c = Class.forName(Configure.getConfig("md5"));
+            Class c = Class.forName(session.getConfig("md5"));
             hash = (HASH) (c.newInstance());
         } catch (Exception e) {
             System.err.println("getFingerPrint: " + e);

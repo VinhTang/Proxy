@@ -1,6 +1,6 @@
 package ssh;
 
-public class DHG1 extends KeyExchange {
+public class DHG1 extends ssh.KeyExchange {
 
     static final byte[] g = {2};
     static final byte[] p = {
@@ -48,8 +48,9 @@ public class DHG1 extends KeyExchange {
     private Buffer buf;
     private Packet packet;
 
-    public void init( byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws Exception {
-        
+    public void init(SessionSSH session,
+            byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws Exception {
+        this.session = session;
         this.V_S = V_S;
         this.V_C = V_C;
         this.I_S = I_S;
@@ -58,7 +59,7 @@ public class DHG1 extends KeyExchange {
 //    sha=new SHA1();
 //    sha.init();
         try {
-            Class c = Class.forName(Configure.getConfig("sha-1"));
+            Class c = Class.forName(session.getConfig("sha-1"));
             sha = (HASH) (c.newInstance());
             sha.init();
         } catch (Exception e) {
@@ -69,7 +70,7 @@ public class DHG1 extends KeyExchange {
         packet = new Packet(buf);
 
         try {
-            Class c = Class.forName(Configure.getConfig("dh"));
+            Class c = Class.forName(session.getConfig("dh"));
             dh = (DH) (c.newInstance());
             dh.init();
         } catch (Exception e) {
@@ -80,7 +81,7 @@ public class DHG1 extends KeyExchange {
         dh.setP(p);
         dh.setG(g);
 
-    // The client responds with:
+        // The client responds with:
         // byte  SSH_MSG_KEXDH_INIT(30)
         // mpint e <- g^x mod p
         //         x is a random number (1 < x < (p-1)/2)
@@ -89,14 +90,10 @@ public class DHG1 extends KeyExchange {
         packet.reset();
         buf.putByte((byte) SSH_MSG_KEXDH_INIT);
         buf.putMPInt(e);
-        SessionSSH.write(packet);
+        session.write(packet);
 
-        if (JSch.getLogger().isEnabled(Logger.INFO)) {
-            JSch.getLogger().log(Logger.INFO,
-                    "SSH_MSG_KEXDH_INIT sent");
-            JSch.getLogger().log(Logger.INFO,
-                    "expecting SSH_MSG_KEXDH_REPLY");
-        }
+        proxy.Logs.Println(proxy.Logger.INFO, "SSH_MSG_KEXDH_INIT sent");
+        proxy.Logs.Println(proxy.Logger.INFO, "expecting SSH_MSG_KEXDH_REPLY");
 
         state = SSH_MSG_KEXDH_REPLY;
     }
@@ -106,7 +103,7 @@ public class DHG1 extends KeyExchange {
 
         switch (state) {
             case SSH_MSG_KEXDH_REPLY:
-      // The server responds with:
+                // The server responds with:
                 // byte      SSH_MSG_KEXDH_REPLY(31)
                 // string    server public host key and certificates (K_S)
                 // mpint     f
@@ -120,7 +117,7 @@ public class DHG1 extends KeyExchange {
                 }
 
                 K_S = _buf.getString();
-      // K_S is server_key_blob, which includes ....
+                // K_S is server_key_blob, which includes ....
                 // string ssh-dss
                 // impint p of dsa
                 // impint q of dsa
@@ -140,7 +137,7 @@ public class DHG1 extends KeyExchange {
                 dh.setF(f);
                 K = dh.getK();
 
-      //The hash H is computed as the HASH hash of the concatenation of the
+                //The hash H is computed as the HASH hash of the concatenation of the
                 //following:
                 // string    V_C, the client's version string (CR and NL excluded)
                 // string    V_S, the server's version string (CR and NL excluded)
@@ -171,7 +168,7 @@ public class DHG1 extends KeyExchange {
                 j = 0;
                 j = ((K_S[i++] << 24) & 0xff000000) | ((K_S[i++] << 16) & 0x00ff0000)
                         | ((K_S[i++] << 8) & 0x0000ff00) | ((K_S[i++]) & 0x000000ff);
-                String alg = Util.byte2str(K_S, i, j);
+                String alg = proxy.Tools.byte2str(K_S, i, j);
                 i += j;
 
                 boolean result = false;
@@ -211,10 +208,8 @@ public class DHG1 extends KeyExchange {
                     sig.update(H);
                     result = sig.verify(sig_of_H);
 
-                    if (JSch.getLogger().isEnabled(Logger.INFO)) {
-                        JSch.getLogger().log(Logger.INFO,
-                                "ssh_rsa_verify: signature " + result);
-                    }
+                    proxy.Logs.Println(proxy.Logger.INFO,
+                            "ssh_rsa_verify: signature " + result);
 
                 } else if (alg.equals("ssh-dss")) {
                     byte[] q = null;
@@ -262,10 +257,8 @@ public class DHG1 extends KeyExchange {
                     sig.update(H);
                     result = sig.verify(sig_of_H);
 
-                    if (JSch.getLogger().isEnabled(Logger.INFO)) {
-                        JSch.getLogger().log(Logger.INFO,
-                                "ssh_dss_verify: signature " + result);
-                    }
+                    proxy.Logs.Println(proxy.Logger.INFO,
+                            "ssh_dss_verify: signature " + result);
 
                 } else {
                     System.err.println("unknown alg");
@@ -273,6 +266,7 @@ public class DHG1 extends KeyExchange {
                 state = STATE_END;
                 return result;
         }
+
         return false;
     }
 
@@ -286,5 +280,4 @@ public class DHG1 extends KeyExchange {
     public int getState() {
         return state;
     }
-
 }

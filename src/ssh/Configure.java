@@ -1,18 +1,18 @@
+package ssh;
+
 /*
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package ssh;
 /**
  *
  * @author Milky_Way
  */
-    
 public class Configure {
-    
+
     static java.util.Hashtable config = new java.util.Hashtable();
-    
+
     static {
 //  config.put("kex", "diffie-hellman-group-exchange-sha1");
         config.put("kex", "diffie-hellman-group1-sha1,diffie-hellman-group-exchange-sha1");
@@ -38,7 +38,7 @@ public class Configure {
 
         config.put("diffie-hellman-group-exchange-sha1",
                 "jcraft.DHGEX");
-        config.put("diffie-hellman-group1-sha1","ssh.DHG1");
+        config.put("diffie-hellman-group1-sha1", "ssh.DHG1");
 
         config.put("dh", "jce.DH");
         config.put("3des-cbc", "jce.TripleDESCBC");
@@ -88,6 +88,9 @@ public class Configure {
     }
     java.util.Vector pool = new java.util.Vector();
     java.util.Vector identities = new java.util.Vector();
+    
+    private HostKeyRepository known_hosts = null;
+    
 
     public Configure() {
 
@@ -103,6 +106,13 @@ public class Configure {
         } catch (Exception e) {
         }
 
+    }
+
+    public HostKeyRepository getHostKeyRepository() {
+        if (known_hosts == null) {
+            known_hosts = new KnownHosts(this);
+        }
+        return known_hosts;
     }
 
     public static void setConfig(java.util.Hashtable newconf) {

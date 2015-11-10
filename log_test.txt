@@ -2,8 +2,8 @@
 <!DOCTYPE log SYSTEM "logger.dtd">
 <log>
 <record>
-  <date>2015-11-03T09:57:20</date>
-  <millis>1446519440840</millis>
+  <date>2015-11-04T11:45:04</date>
+  <millis>1446612304912</millis>
   <sequence>0</sequence>
   <logger>LoggingExample1</logger>
   <level>INFO</level>
@@ -13,8 +13,8 @@
   <message>test 1</message>
 </record>
 <record>
-  <date>2015-11-03T09:57:21</date>
-  <millis>1446519441001</millis>
+  <date>2015-11-04T11:45:04</date>
+  <millis>1446612304971</millis>
   <sequence>1</sequence>
   <logger>LoggingExample1</logger>
   <level>INFO</level>
@@ -24,8 +24,8 @@
   <message>test 2</message>
 </record>
 <record>
-  <date>2015-11-03T09:57:21</date>
-  <millis>1446519441006</millis>
+  <date>2015-11-04T11:45:04</date>
+  <millis>1446612304973</millis>
   <sequence>2</sequence>
   <logger>LoggingExample1</logger>
   <level>INFO</level>

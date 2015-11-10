@@ -113,7 +113,7 @@ public class SOCK4 {
 
         }
 
-        Logs.Println("Accepted SOCKS 4 Command: \"" + commName(Command) + "\"");
+        Logs.Println(Logger.INFO,"Accepted SOCKS 4 Command: \"" + commName(Command) + "\"");
 
     }
 
@@ -137,7 +137,7 @@ public class SOCK4 {
     //4. create ssh connect to proxy
     //5. transfer data from client to server
     public void Reply_Connect() throws Exception {
-        Logs.Println("Connecting... ");
+        Logs.Println(Logger.DEBUG,"Connecting... ");
         //	Connect to the Remote Host
 
 //        try {
@@ -149,7 +149,7 @@ public class SOCK4 {
 //                    + Logs.getSocketInfo(Parent.ServerSocket));
 //        }
 
-        Logs.Println("Connected to " + Logs.getSocketInfo(Parent.ServerSocket));
+        Logs.Println(Logger.INFO,"Connected to " + Logs.getSocketInfo(Parent.ServerSocket));
         Reply_Command(getSuccessCode());
 
     }
@@ -157,9 +157,8 @@ public class SOCK4 {
     ////////////////////////////////////////////////////////////////////////////
     public void Calculate_Username() {
         String s = UID + " ";
-
         UserID = s.getBytes();
-        Logs.Println("USERID : " + Tools.byte2str(UserID));
+        Logs.Println(Logger.DEBUG,"USERID : " + Tools.byte2str(UserID));
         // Send USerID to check role
         //UserID[UserID.length - 1] = 0x00;
     }
@@ -170,7 +169,7 @@ public class SOCK4 {
         ServerIP = Tools.calcInetAddress(DST_Addr);
         ServerPort = Tools.calcPort(DST_Port);
 
-        Logs.Println(ServerIP + "/" + ServerPort);
+        Logs.Println(Logger.INFO,ServerIP + "/" + ServerPort);
 
         ClientIP = Parent.ClientSocket.getInetAddress();
         ClientPort = Parent.ClientSocket.getPort();
@@ -189,13 +188,13 @@ public class SOCK4 {
 
     ////////////////////////////////////////////////////////////////////////////
     protected void Refuse_Command(byte ErrorCode) {
-        Logs.Println("Socks 4 - Refuse Command: \"" + ReplyName(ErrorCode) + "\"");
+        Logs.Println(Logger.INFO,"Socks 4 - Refuse Command: \"" + ReplyName(ErrorCode) + "\"");
         Reply_Command(ErrorCode);
     }	// Refuse_Command()
 
     //-------------------------------------
     public void Reply_Command(byte ReplyCode) {
-        Logs.Println("Socks 4 reply: \"" + ReplyName(ReplyCode) + "\"");
+        Logs.Println(Logger.INFO,"Socks 4 reply: \"" + ReplyName(ReplyCode) + "\"");
 
         byte[] REPLY = new byte[8];
         REPLY[0] = 0;

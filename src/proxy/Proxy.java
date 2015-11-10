@@ -12,6 +12,7 @@ import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketException;
+import static proxy.Logs.ClientLog;
 
 /**
  *
@@ -58,7 +59,7 @@ public class Proxy extends Thread {
     public final boolean Have_Authentication = true; //SOCKs 5 Authentication Method
     ////////////////////////////////////////////////////////////////////////////
 
-    public Proxy(SOCKServer SockServer, Socket ClientSocket) {
+    public Proxy(SOCKServer SockServer, Socket ClientSocket, boolean fLog) {
 
         bucket = this;
 
@@ -67,19 +68,21 @@ public class Proxy extends Thread {
             Close();
             return;
         }
-
+        if (fLog == true) {
+            Logs.setLogger(new Logs.ClientLog(ClientSocket));
+        }
         this.ClientSocket = ClientSocket;
         if (ClientSocket != null) {
             try {
                 ClientSocket.setSoTimeout(DEFAULT_TIMEOUT);
             } catch (SocketException e) {
-                Logs.Error("Socket Exception during seting Timeout.");
+                Logs.Println(Logger.ERROR, "Socket Exception during seting Timeout.");
             }
         }
 
         Buffer = new byte[Bufflen];
-
-        Logs.Println("Proxy Created!");
+        
+        Logs.Println(Logger.INFO, "Proxy Created!");
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -96,8 +99,8 @@ public class Proxy extends Thread {
             ClientInput = ClientSocket.getInputStream();
             ClientOutput = ClientSocket.getOutputStream();
         } catch (IOException e) {
-            Logs.Error("Proxy - can't get I/O streams!");
-            Logs.Error(e);
+            Logs.Println(Logger.ERROR, "Proxy - can't get I/O streams!" + e.toString());
+
             return false;
         }
         return true;
@@ -106,11 +109,11 @@ public class Proxy extends Thread {
     ////////////////////////////////////////////////////////////////////////////
     @Override
     public void run() {
-        Logs.Println("Proxy start!");
+        Logs.Println(Logger.INFO, "Proxy start!");
 
         setBucket(this);
         if (!PrepareClient()) {
-            Logs.Error("Proxy - client socket is null !");
+            Logs.Println(Logger.ERROR, "Proxy - client socket is null !");
             return;
         }
         ProcessRelay();
@@ -135,23 +138,23 @@ public class Proxy extends Thread {
                     communicator = new SOCK5(this);
                     break;
                 default:
-                    Logs.Error("Invalid SOKCS version : " + SOCKVersion);
+                    Logs.Println(Logger.ERROR, "Invalid SOKCS version : " + SOCKVersion);
                     return;
             }
 
-            Logs.Println("Accepted SOCKS " + SOCKVersion + " Request.");
+            Logs.Println(Logger.INFO, "Accepted SOCKS " + SOCKVersion + " Request.");
 
             communicator.AuthenticateVersion(SOCKVersion);
             communicator.GetClientCommand();
 
-            System.out.println("ok. ProcessRelay() Proxy.java");
+            Logs.Println(Logger.DEBUG, "ok. ProcessRelay() Proxy.java");
 
             SessionSSH SSH = new SessionSSH(this);
 
             //start communication with Server
             switch (communicator.Command) {
                 case SOCK4.SC_CONNECT:
-                    System.out.println("switch case (communicator)");
+                    Logs.Println(Logger.DEBUG, "switch case (communicator)");
                     communicator.Reply_Connect();  // equal Connect()
                     //create SSH Trans
                     SSH.Connect();
@@ -185,7 +188,7 @@ public class Proxy extends Thread {
     //-----------
     public void SendToClient(byte[] Buf, int Len) {
         if (ClientOutput == null) {
-            Logs.Println("ClientOutput = null.  SentToCLient() ");
+            Logs.Println(Logger.DEBUG, "ClientOutput = null.  SentToCLient() ");
             return;
         }
         if (Len <= 0 || Len > Buf.length) {
@@ -196,7 +199,7 @@ public class Proxy extends Thread {
             ClientOutput.write(Buf, 0, Len);
             ClientOutput.flush();
         } catch (IOException e) {
-            Logs.Error("Sending data to client");
+            Logs.Println(Logger.ERROR, "Sending data to client");
         }
     }
 
@@ -213,7 +216,7 @@ public class Proxy extends Thread {
 
         } catch (Exception e) {
         }
-        
+
         //Disconnect Proxy <-> LinuxServer
         try {
             if (ServerSocket != null) {
@@ -227,7 +230,7 @@ public class Proxy extends Thread {
         ServerSocket = null;
         ClientSocket = null;
 
-        Logs.Println("Proxy Closed !");
+        Logs.Println(Logger.INFO, "Proxy Closed !");
     }
     //-------------------------------------------
 
@@ -238,14 +241,14 @@ public class Proxy extends Thread {
 
         if (ServerHost.equals("")) {
             Close();
-            Logs.Error("Invalid Remote Host Name - Empty String !!!");
+            Logs.Println(Logger.ERROR, "Invalid Remote Host Name - Empty String !!!");
             return;
         }
 
         ServerSocket = new Socket(ServerHost, ServerPort);
         ServerSocket.setSoTimeout(DEFAULT_TIMEOUT);
 
-        Logs.Println("Connected to " + Logs.getSocketInfo(ServerSocket));
+        Logs.Println(Logger.INFO, "Connected to " + Logs.getSocketInfo(ServerSocket));
         PrepareServer(); // prepare Stream for Server
 
     }

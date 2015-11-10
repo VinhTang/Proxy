@@ -1,10 +1,10 @@
+package ssh;
+
 /*
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package ssh;
-
 import java.io.IOException;
 
 import proxy.Logs;
@@ -175,7 +175,7 @@ public class SessionSSH {
         }
         if (len < 7 || (buf.buffer[4] == '1' && buf.buffer[6] != '9'))// SSH-1.5 // SSH-1.99 or SSH-2.0 (7)
         {
-            Logs.Error("Proxy only support SSH 2.0!");
+            Logs.Println(proxy.Logger.INFO, "Proxy only support SSH 2.0!");
             Parent.Close();
         }
 
@@ -187,42 +187,98 @@ public class SessionSSH {
         //free buf
         buf = null;
 
-        Logs.Error(
+        Logs.Println(proxy.Logger.INFO,
                 "\n-------------------Start SSH Trans-------------------\n"
                 + "-----------------------------------------------------\n"
         );
-        Logs.Println("Version Client: " + Tools.byte2str(V_Client));
-        Logs.Println("Version Proxy : " + Tools.byte2str(V_Proxy));
+        Logs.Println(proxy.Logger.INFO, "Version Client: " + Tools.byte2str(V_Client));
+        Logs.Println(proxy.Logger.INFO, "Version Proxy : " + Tools.byte2str(V_Proxy));
+
 //------------------------------------------------------------------------------        
 //                              send Key Exchange Intial
 //------------------------------------------------------------------------------
         if (cookie == null) {
             try {
                 getConfig("random");
-                System.err.println(getConfig("random"));
                 Class c = Class.forName(getConfig("random"));
                 cookie = (Cookie) (c.newInstance());
             } catch (Exception e) {
-                Logs.Error(e);
+                Logs.Println(proxy.Logger.ERROR, e.toString());
             }
         }
+
         //send kexinit 
         send_kexinit();
+
 //------------------------------------------------------------------------------        
 //                              receive Key Exchange Intial
 //------------------------------------------------------------------------------
-        System.err.println(buf.buffer.length);
         buf = read(buf);
         if (buf.getCommand() != SSH_MSG_KEXINIT) {
             in_kex = false;
 
         }
-        for (int i = 1; i <= buf.buffer.length / 2; i++) {
-            Logs.Print(String.valueOf(buf.buffer[i]));
-        }
-        Logs.Println("SSH_MSG_KEXINIT received");
+        Logs.Println(proxy.Logger.INFO, "SSH_MSG_KEXINIT received");
 
         KeyExchange kex = receive_kexinit(buf);
+//------------------------------------------------------------------------------        
+//                              receive Key Exchange Intial
+//------------------------------------------------------------------------------
+        
+        while (true) {
+            buf = read(buf);
+            if (kex.getState() == buf.getCommand()) {
+                kex_start_time = System.currentTimeMillis();
+                boolean result = kex.next(buf);
+                proxy.Logs.Println(proxy.Logger.DEBUG, "test: ");
+                if (!result) {
+                    //System.err.println("verify: "+result);
+                    in_kex = false;
+                    throw new ProxyException("verify: " + result);
+                }
+            } else {
+                in_kex = false;
+                throw new ProxyException("invalid protocol(kex): " + buf.getCommand());
+            }
+            if (kex.getState() == KeyExchange.STATE_END) {
+                break;
+            }
+        }
+
+        try {
+            checkHost(host, port, kex);
+        } catch (ProxyException ee) {
+            in_kex = false;
+            throw ee;
+        }
+        send_newkeys();
+
+        // receive SSH_MSG_NEWKEYS(21)
+        buf = read(buf);
+        //System.err.println("read: 21 ? "+buf.getCommand());
+        if (buf.getCommand() == SSH_MSG_NEWKEYS) {
+
+            proxy.Logs.Println(proxy.Logger.INFO, "SSH_MSG_NEWKEYS received");
+
+            receive_newkeys(buf, kex);
+        } else {
+            in_kex = false;
+            throw new ProxyException("invalid protocol(newkyes): " + buf.getCommand());
+        }
+
+        //---------------------------------------------------------------------------------------------
+        boolean auth = false;
+        boolean auth_cancel = false;
+
+//        UserAuth ua = null;
+//        try {
+//            Class c = Class.forName(getConfig("userauth.none"));
+//            ua = (UserAuth) (c.newInstance());
+//        } catch (Exception e) {
+//            throw new JSchException(e.toString(), e);
+//        }
+//
+//        auth = ua.start(this);
     }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -238,16 +294,14 @@ public class SessionSSH {
         String cipherc2s = getConfig("cipher.c2s");
         String ciphers2c = getConfig("cipher.s2c");
 
-        //System.err.println("getConfig(\"CheckCiphers\"): send_kexinit() " + getConfig("CheckCiphers"));
         String[] not_available = checkCiphers(getConfig("CheckCiphers"));
 
         if (not_available != null && not_available.length > 0) {
             cipherc2s = Tools.diffString(cipherc2s, not_available);
             ciphers2c = Tools.diffString(ciphers2c, not_available);
-            System.err.println("cipherc2s: send_kexinit() " + cipherc2s);
-            System.err.println("ciphers2c: send_kexinit() " + ciphers2c);
+            Logs.Println(proxy.Logger.DEBUG, "cipherc2s: send_kexinit() " + cipherc2s);
             if (cipherc2s == null || ciphers2c == null) {
-                Logs.Println("There are not any available ciphers.");
+                Logs.Println(proxy.Logger.ERROR, "There are not any available ciphers.");
             }
         }
 
@@ -284,7 +338,7 @@ public class SessionSSH {
 
         write(packet);
 
-        Logs.Println("SSH_MSG_KEXINIT sent");
+        Logs.Println(proxy.Logger.INFO, "SSH_MSG_KEXINIT sent");
     }
 //-----------------------------------------
 
@@ -297,35 +351,170 @@ public class SessionSSH {
             I_S = new byte[j - 1 - buf.getByte()];
         }
         System.arraycopy(buf.buffer, buf.s, I_S, 0, I_S.length);
-        Logs.Print(Tools.byte2str(buf.buffer));
+
         if (!in_kex) {     // We are in rekeying activated by the remote!
             send_kexinit();
         }
 
         guess = KeyExchange.guess(I_S, I_C);
-        System.err.println("guess: "+guess);
+
         if (guess == null) {
-           Logs.Error("Algorithm negotiation fail");
+            throw new ProxyException("Algorithm negotiation fail");
         }
 
         if (!isAuthed
                 && (guess[KeyExchange.PROPOSAL_ENC_ALGS_CTOS].equals("none")
                 || (guess[KeyExchange.PROPOSAL_ENC_ALGS_STOC].equals("none")))) {
-          //  throw new JSchException("NONE Cipher should not be chosen before authentification is successed.");
+            throw new ProxyException("NONE Cipher should not be chosen before authentification is successed.");
         }
-        System.err.println("guess[KeyExchange.PROPOSAL_KEX_ALGS]: "+guess[KeyExchange.PROPOSAL_KEX_ALGS]);
+
         KeyExchange kex = null;
         try {
             Class c = Class.forName(getConfig(guess[KeyExchange.PROPOSAL_KEX_ALGS]));
             kex = (KeyExchange) (c.newInstance());
         } catch (Exception e) {
-            System.err.println("loi");
-           // throw new JSchException(e.toString(), e);
+            throw new ProxyException(e.toString(), e);
         }
-        System.err.println(kex.getKeyType());
-        //kex.init(this, V_S, V_C, I_S, I_C);
+  
+        kex.init(this, V_Proxy, V_Client, I_S, I_C);
+        
         return kex;
     }
+
+//-----------------------------------------
+    private void send_newkeys() throws Exception {
+        // send SSH_MSG_NEWKEYS(21)
+        packet.reset();
+        buf.putByte((byte) SSH_MSG_NEWKEYS);
+        write(packet);
+        proxy.Logs.Println(proxy.Logger.INFO, "SSH_MSG_NEWKEYS sent");
+
+    }
+
+//-----------------------------------------
+    private void receive_newkeys(Buffer buf, KeyExchange kex) throws Exception {
+        updateKeys(kex);
+        in_kex = false;
+    }
+//-----------------------------------------
+
+    private void updateKeys(KeyExchange kex) throws Exception {
+        byte[] K = kex.getK();
+        byte[] H = kex.getH();
+        HASH hash = kex.getHash();
+
+//    String[] guess=kex.guess;
+        if (session_id == null) {
+            session_id = new byte[H.length];
+            System.arraycopy(H, 0, session_id, 0, H.length);
+        }
+
+        /*
+         Initial IV client to server:     HASH (K || H || "A" || session_id)
+         Initial IV server to client:     HASH (K || H || "B" || session_id)
+         Encryption key client to server: HASH (K || H || "C" || session_id)
+         Encryption key server to client: HASH (K || H || "D" || session_id)
+         Integrity key client to server:  HASH (K || H || "E" || session_id)
+         Integrity key server to client:  HASH (K || H || "F" || session_id)
+         */
+        buf.reset();
+        buf.putMPInt(K);
+        buf.putByte(H);
+        buf.putByte((byte) 0x41);
+        buf.putByte(session_id);
+        hash.update(buf.buffer, 0, buf.index);
+        IVc2s = hash.digest();
+
+        int j = buf.index - session_id.length - 1;
+
+        buf.buffer[j]++;
+        hash.update(buf.buffer, 0, buf.index);
+        IVs2c = hash.digest();
+
+        buf.buffer[j]++;
+        hash.update(buf.buffer, 0, buf.index);
+        Ec2s = hash.digest();
+
+        buf.buffer[j]++;
+        hash.update(buf.buffer, 0, buf.index);
+        Es2c = hash.digest();
+
+        buf.buffer[j]++;
+        hash.update(buf.buffer, 0, buf.index);
+        MACc2s = hash.digest();
+
+        buf.buffer[j]++;
+        hash.update(buf.buffer, 0, buf.index);
+        MACs2c = hash.digest();
+
+        try {
+            Class c;
+            String method;
+
+            method = guess[KeyExchange.PROPOSAL_ENC_ALGS_STOC];
+            c = Class.forName(getConfig(method));
+            s2ccipher = (Cipher) (c.newInstance());
+            while (s2ccipher.getBlockSize() > Es2c.length) {
+                buf.reset();
+                buf.putMPInt(K);
+                buf.putByte(H);
+                buf.putByte(Es2c);
+                hash.update(buf.buffer, 0, buf.index);
+                byte[] foo = hash.digest();
+                byte[] bar = new byte[Es2c.length + foo.length];
+                System.arraycopy(Es2c, 0, bar, 0, Es2c.length);
+                System.arraycopy(foo, 0, bar, Es2c.length, foo.length);
+                Es2c = bar;
+            }
+            s2ccipher.init(Cipher.DECRYPT_MODE, Es2c, IVs2c);
+            s2ccipher_size = s2ccipher.getIVSize();
+
+            method = guess[KeyExchange.PROPOSAL_MAC_ALGS_STOC];
+            c = Class.forName(getConfig(method));
+            s2cmac = (MAC) (c.newInstance());
+            s2cmac.init(MACs2c);
+            //mac_buf=new byte[s2cmac.getBlockSize()];
+            s2cmac_result1 = new byte[s2cmac.getBlockSize()];
+            s2cmac_result2 = new byte[s2cmac.getBlockSize()];
+
+            method = guess[KeyExchange.PROPOSAL_ENC_ALGS_CTOS];
+            c = Class.forName(getConfig(method));
+            c2scipher = (Cipher) (c.newInstance());
+            while (c2scipher.getBlockSize() > Ec2s.length) {
+                buf.reset();
+                buf.putMPInt(K);
+                buf.putByte(H);
+                buf.putByte(Ec2s);
+                hash.update(buf.buffer, 0, buf.index);
+                byte[] foo = hash.digest();
+                byte[] bar = new byte[Ec2s.length + foo.length];
+                System.arraycopy(Ec2s, 0, bar, 0, Ec2s.length);
+                System.arraycopy(foo, 0, bar, Ec2s.length, foo.length);
+                Ec2s = bar;
+            }
+            c2scipher.init(Cipher.ENCRYPT_MODE, Ec2s, IVc2s);
+            c2scipher_size = c2scipher.getIVSize();
+
+            method = guess[KeyExchange.PROPOSAL_MAC_ALGS_CTOS];
+            c = Class.forName(getConfig(method));
+            c2smac = (MAC) (c.newInstance());
+            c2smac.init(MACc2s);
+
+            method = guess[KeyExchange.PROPOSAL_COMP_ALGS_CTOS];
+            initDeflater(method);
+
+            method = guess[KeyExchange.PROPOSAL_COMP_ALGS_STOC];
+            initInflater(method);
+        } catch (Exception e) {
+            if (e instanceof ProxyException) {
+                throw e;
+            }
+            throw new ProxyException(e.toString(), e);
+            //System.err.println("updatekeys: "+e); 
+        }
+    }
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
     private String[] checkCiphers(String ciphers) {
@@ -333,7 +522,7 @@ public class SessionSSH {
             return null;
         }
 
-        Logs.Println("CheckCiphers: " + ciphers);
+        Logs.Println(proxy.Logger.DEBUG, "CheckCiphers: " + ciphers);
 
         java.util.Vector result = new java.util.Vector();
         String[] _ciphers = proxy.Tools.split(ciphers, ",");
@@ -352,7 +541,7 @@ public class SessionSSH {
         System.arraycopy(result.toArray(), 0, foo, 0, result.size());
 
         for (int i = 0; i < foo.length; i++) {
-            Logs.Println(foo[i] + " is not available.");
+            Logs.Println(proxy.Logger.DEBUG, foo[i] + " is not available.");
         }
 
         return foo;
@@ -366,10 +555,10 @@ public class SessionSSH {
             Cipher _c = (Cipher) (c.newInstance());
 
             _c.init(Cipher.ENCRYPT_MODE, new byte[_c.getBlockSize()], new byte[_c.getIVSize()]);
-            System.err.println("OK   check Cipher: " + cipher);
+            Logs.Println(proxy.Logger.INFO, "OK   check Cipher: " + cipher);
             return true;
         } catch (Exception e) {
-            System.err.println("fail checkCipher:  " + cipher);
+            Logs.Println(proxy.Logger.INFO, "fail checkCipher:  " + cipher);
             return false;
 
         }
@@ -381,7 +570,7 @@ public class SessionSSH {
         long t = getTimeout();
         while (in_kex) {
             if (t > 0L && (System.currentTimeMillis() - kex_start_time) > t) {
-                Logs.Error("timeout in wating for rekeying process.");
+                Logs.Println(proxy.Logger.DEBUG, "timeout in wating for rekeying process.");
             }
             byte command = packet.buffer.getCommand();
             //System.err.println("command: "+command);
@@ -505,7 +694,7 @@ public class SessionSSH {
                     description = buf.getString();
                     language_tag = buf.getString();
                 } catch (Exception e) {
-                    proxy.Logs.Error("SSH_MSG_DISCONNECT: "
+                    Logs.Println(proxy.Logger.ERROR, "SSH_MSG_DISCONNECT: "
                             + reason_code
                             + " " + proxy.Tools.byte2str(description)
                             + " " + proxy.Tools.byte2str(language_tag));
@@ -520,7 +709,7 @@ public class SessionSSH {
                     buf.getShort();
                     reason_id = buf.getInt();
                 } catch (Exception e) {
-                    proxy.Logs.Error("Received SSH_MSG_UNIMPLEMENTED for " + reason_id);
+                    Logs.Println(proxy.Logger.ERROR, "Received SSH_MSG_UNIMPLEMENTED for " + reason_id);
                 }
 
             } else if (type == SSH_MSG_DEBUG) {
@@ -567,7 +756,7 @@ public class SessionSSH {
     private int s2ccipher_size = 8;
     private int c2scipher_size = 8;
     int[] uncompress_len = new int[1];
-
+//------------------------------------------------------------------------------
     public void encode(Packet packet) throws Exception {
 
         if (deflater != null) {
@@ -584,31 +773,30 @@ public class SessionSSH {
         } else {
             packet.padding(8);
         }
-        System.err.println("c2smac: " + c2smac);
+
         if (c2smac != null) {
             c2smac.update(seqo);
             c2smac.update(packet.buffer.buffer, 0, packet.buffer.index);
             c2smac.doFinal(packet.buffer.buffer, packet.buffer.index);
         }
-        System.err.println("c2scipher: " + c2scipher);
+
         if (c2scipher != null) {
             byte[] buf = packet.buffer.buffer;
             c2scipher.update(buf, 0, packet.buffer.index, buf, 0);
         }
 
-        System.err.println("c2smac: " + c2smac);
         if (c2smac != null) {
             packet.buffer.skip(c2smac.getBlockSize());
         }
     }
 
-    //---------------------------------
+//------------------------------------------------------------------------------
     private void start_discard(Buffer buf, Cipher cipher, MAC mac,
             int packet_length, int discard) throws IOException {
         MAC discard_mac = null;
 
         if (!cipher.isCBC()) {
-            Logs.Error("Packet corrupt");
+            Logs.Println(proxy.Logger.ERROR, "Packet corrupt");
         }
 
         if (packet_length != PACKET_MAX_SIZE && mac != null) {
@@ -632,9 +820,57 @@ public class SessionSSH {
         }
 
     }
+
+//------------------------------------------------------------------------------
+    private void initInflater(String method) throws ProxyException {
+        if (method.equals("none")) {
+            inflater = null;
+            return;
+        }
+        String foo = getConfig(method);
+        if (foo != null) {
+            if (method.equals("zlib")
+                    || (isAuthed && method.equals("zlib@openssh.com"))) {
+                try {
+                    Class c = Class.forName(foo);
+                    inflater = (Compression) (c.newInstance());
+                    inflater.init(Compression.INFLATER, 0);
+                } catch (Exception ee) {
+                    throw new ProxyException(ee.toString(), ee);
+                    //System.err.println(foo+" isn't accessible.");
+                }
+            }
+        }
+    }
+
+    private void initDeflater(String method) throws ProxyException {
+        if (method.equals("none")) {
+            deflater = null;
+            return;
+        }
+        String foo = getConfig(method);
+        if (foo != null) {
+            if (method.equals("zlib")
+                    || (isAuthed && method.equals("zlib@openssh.com"))) {
+                try {
+                    Class c = Class.forName(foo);
+                    deflater = (Compression) (c.newInstance());
+                    int level = 6;
+                    try {
+                        level = Integer.parseInt(getConfig("compression_level"));
+                    } catch (Exception ee) {
+                    }
+                    deflater.init(Compression.DEFLATER, level);
+                } catch (Exception ee) {
+                    throw new ProxyException(ee.toString(), ee);
+                    //System.err.println(foo+" isn't accessible.");
+                }
+            }
+        }
+    }
+
 ////////////////////////////////////////////////////////////////////////////////
     //----------------
-
     protected byte GetByte() {
         byte b;
         try {

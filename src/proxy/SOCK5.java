@@ -16,7 +16,7 @@ public class SOCK5 extends SOCK4 {
 
     ////////////////////////////////////////////////////////////////////////////
     final byte SOCKS5_Version = 0x05;
-
+    
     static final int MaxAddrLen = 255;
 
 //--- Reply Codes ---
@@ -33,11 +33,11 @@ public class SOCK5 extends SOCK4 {
     protected byte getSuccessCode() {
         return 00;
     }
-
+    
     protected byte getConnectnotAllowedRuleset() {
         return 02;
     }
-
+    
     protected byte getFailCode() {
         return 04;
     }
@@ -63,7 +63,7 @@ public class SOCK5 extends SOCK4 {
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
     public SOCK5(Proxy proxy) {
-
+        
         super(proxy);
         DST_Addr = new byte[MaxAddrLen];
     }
@@ -71,7 +71,7 @@ public class SOCK5 extends SOCK4 {
     ////////////////////////////////////////////////////////////////////////////
     public void AuthenticateVersion(byte SOCKS_Ver)
             throws Exception {
-
+        
         super.AuthenticateVersion(SOCKS_Ver); // Sets SOCKS Version...
 
         if (SOCKS_Version == SOCKS5_Version) {
@@ -87,7 +87,7 @@ public class SOCK5 extends SOCK4 {
             throw new Exception("Not Supported SOCKS Version -'"
                     + SOCKS_Version + "'");
         }
-
+        
     }
 
 // Authenticate()
@@ -98,7 +98,7 @@ public class SOCK5 extends SOCK4 {
         //get Method
         byte Methods_Num = GetByte();
         String Methods = "";
-
+        
         for (int i = 0; i < Methods_Num; i++) {
             Methods += ",-" + GetByte() + '-';
         }
@@ -113,8 +113,8 @@ public class SOCK5 extends SOCK4 {
 
     //-----------------------
     public void Refuse_Authentication(String msg) {
-
-        Logs.Println("SOCKS 5 - Refuse Authentication: '" + msg + "'");
+        
+        Logs.Println(Logger.ERROR, "SOCKS 5 - Refuse Authentication: '" + msg + "'");
         Parent.SendToClient(SRE_Refuse);
         Parent.Close();
     }
@@ -123,13 +123,13 @@ public class SOCK5 extends SOCK4 {
     private void Reply_Auth(boolean flag) throws IOException {
         if (flag == true) {
             Parent.SendToClient(SRE_Auth);
-            Logs.Println("SOCK5 authentication method establish!");
+            Logs.Println(Logger.INFO, "SOCK5 authentication method establish!");
         }
         if (flag == false) {
             Parent.SendToClient(SRE_NoAuth);
-            Logs.Println("SOCK5 not support authentication method!");
+            Logs.Println(Logger.ERROR, "SOCK5 not support authentication method!");
         }
-
+        
     }
 
     //-----------------------
@@ -157,7 +157,7 @@ public class SOCK5 extends SOCK4 {
 //        | 1  |  1  | X'00' |  1   | Variable |    2     |
 //        +----+-----+-------+------+----------+----------+
         int Addr_Len;
-
+        
         SOCKS_Version = GetByte();
         Command = GetByte();
         RSV = GetByte();
@@ -169,7 +169,7 @@ public class SOCK5 extends SOCK4 {
         if (ATYP == 0x03) {
             Addr_Len = DST_Addr[0] + 1;    // | len | [0]SO | 192 .... |
         }
-
+        
         for (int i = 1; i < Addr_Len; i++) {
             DST_Addr[i] = GetByte();
         }
@@ -179,47 +179,49 @@ public class SOCK5 extends SOCK4 {
         DST_Port[1] = GetByte();
         //---------------------
         if (SOCKS_Version != SOCKS5_Version) {
-            Logs.Println("SOCKS 5 - Incorrect SOCKS Version of Command: "
+            Logs.Println(Logger.ERROR, "SOCKS 5 - Incorrect SOCKS Version of Command: "
                     + SOCKS_Version);
             Refuse_Command((byte) 0xFF);
             throw new Exception("Incorrect SOCKS Version of Command: "
                     + SOCKS_Version);
         }
-
+        
         if ((Command < SC_CONNECT) || (Command > SC_UDP)) {
-            Logs.Error("SOCKS 5 - GetClientCommand() - Unsupported Command : \"" + commName(Command) + "\"");
+            Logs.Println(Logger.ERROR, "SOCKS 5 - GetClientCommand() - Unsupported Command : \"" + commName(Command) + "\"");
             Refuse_Command((byte) 0x07);
             throw new Exception("SOCKS 5 - Unsupported Command: \"" + Command + "\"");
         }
-
+        
         if (ATYP == 0x04) {
-            Logs.Error("SOCKS 5 - GetClientCommand() - Unsupported Address Type - IP v6");
+            Logs.Println(Logger.ERROR, "SOCKS 5 - GetClientCommand() - Unsupported Address Type - IP v6");
             Refuse_Command((byte) 0x08);
             throw new Exception("Unsupported Address Type - IP v6");
         }
-
+        
         if ((ATYP >= 0x04) || (ATYP <= 0)) {
-            Logs.Error("SOCKS 5 - GetClientCommand() - Unsupported Address Type: " + ATYP);
+            Logs.Println(Logger.ERROR, "SOCKS 5 - GetClientCommand() - Unsupported Address Type: " + ATYP);
             Refuse_Command((byte) 0x08);
             throw new Exception("SOCKS 5 - Unsupported Address Type: " + ATYP);
         }
-
+        
         if (!Calculate_Address()) {  // Gets the IP Address 
             Refuse_Command((byte) 0x04);// Host Not Exists...
             throw new Exception("SOCKS 5 - Unknown Host/IP address '" + ServerIP.toString() + "'");
         }
-
-        Logs.Println("SOCKS 5 - Accepted SOCKS5 Command: \"" + commName(Command) + "\"");
+        
+        Logs.Println(Logger.INFO, "SOCKS 5 - Accepted SOCKS5 Command: \"" + commName(Command) + "\"");
     }
 
     //--------------------
     private void GetUserInfo() {
         byte b;
-        System.err.println("Version: " + GetByte()); //Version 0x01
+        int version = GetByte();
+        
+        Logs.Println(Logger.DEBUG, Integer.toString(version)); //Version 0x01
 
         //USername
         int Userlen = Tools.byte2int(GetByte());
-        Logs.Println("------------------");
+        Logs.Println(Logger.DEBUG, "------------------");
         byte[] User = null;
         for (int i = 0; i < Userlen; i++) {
             Username += (char) GetByte();
@@ -229,29 +231,28 @@ public class SOCK5 extends SOCK4 {
 
         //Password
         int Passlen = Tools.byte2int(GetByte());
-        Logs.Println("------------------");
+        Logs.Println(Logger.DEBUG, "------------------");
         byte[] Pass = null;
         for (int i = 0; i < Passlen; i++) {
             Password += (char) GetByte();
         }
         User = Password.getBytes();
         Password = Tools.byte2str(User);
-
-        Logs.Println("Username: " + Username + " .Password: " + Password);
+        
+        Logs.Println(Logger.DEBUG,"Username: " + Username + " .Password: " + Password);
     }
 
     ////////////////////////////////////////////////////////////////////////////
-
     public void Reply_Command(byte ReplyCode) {
         //Logs.Println("SOCKS 5 - Reply to Client \"" + ReplyName(ReplyCode) + "\"");
 
         int port = 0;
         String DomainName = "0.0.0.0";
         InetAddress InetAdd = null;
-
+        
         byte[] REPLY = new byte[10];
         byte IP[] = new byte[4];
-
+        
         if (Parent.ServerSocket != null) {
             InetAdd = Parent.ServerSocket.getInetAddress();
             DomainName = InetAdd.toString();
@@ -263,7 +264,7 @@ public class SOCK5 extends SOCK4 {
             IP[3] = 0;
             port = 0;
         }
-
+        
         REPLY[0] = SOCKS5_Version;
         REPLY[1] = ReplyCode;	// Reply Code;
         REPLY[2] = 0x00;		// Reserved	'00'
