@@ -63,7 +63,7 @@ public class DHG1 extends ssh.KeyExchange {
             sha = (HASH) (c.newInstance());
             sha.init();
         } catch (Exception e) {
-            System.err.println(e);
+            proxy.Logs.Println(proxy.Logger.ERROR, e.toString());
         }
 
         buf = new Buffer();
@@ -74,8 +74,7 @@ public class DHG1 extends ssh.KeyExchange {
             dh = (DH) (c.newInstance());
             dh.init();
         } catch (Exception e) {
-            //System.err.println(e);
-            throw e;
+            proxy.Logs.Println(proxy.Logger.ERROR, e.toString());            
         }
 
         dh.setP(p);
@@ -95,7 +94,7 @@ public class DHG1 extends ssh.KeyExchange {
         proxy.Logs.Println(proxy.Logger.INFO, "SSH_MSG_KEXDH_INIT sent");
         proxy.Logs.Println(proxy.Logger.INFO, "expecting SSH_MSG_KEXDH_REPLY");
 
-        state = SSH_MSG_KEXDH_REPLY;
+        state = SSH_MSG_KEXDH_INIT;
     }
 
     public boolean next(Buffer _buf) throws Exception {

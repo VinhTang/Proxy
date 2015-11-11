@@ -19,7 +19,7 @@ public class SessionSSH {
 
     static private final String version = "SSH Proxy";
     ////////////////////////////////////////////////////////////////////////////
-    public Proxy Parent = null;
+    public Proxy Parent;
     protected Object bucket;
 
     static final int SSH_MSG_DISCONNECT = 1;
@@ -125,8 +125,6 @@ public class SessionSSH {
         buf = new Buffer();
         packet = new Packet(buf);
 
-        buf.putByte((byte) 90);
-
         buf.putInt(this.lwsize);
         buf.putInt(this.lmpsize);
         Configure config = new Configure();
@@ -184,9 +182,6 @@ public class SessionSSH {
             V_Client[i] = buf.buffer[i];
         }
 
-        //free buf
-        buf = null;
-
         Logs.Println(proxy.Logger.INFO,
                 "\n-------------------Start SSH Trans-------------------\n"
                 + "-----------------------------------------------------\n"
@@ -194,9 +189,6 @@ public class SessionSSH {
         Logs.Println(proxy.Logger.INFO, "Version Client: " + Tools.byte2str(V_Client));
         Logs.Println(proxy.Logger.INFO, "Version Proxy : " + Tools.byte2str(V_Proxy));
 
-//------------------------------------------------------------------------------        
-//                              send Key Exchange Intial
-//------------------------------------------------------------------------------
         if (cookie == null) {
             try {
                 getConfig("random");
@@ -206,37 +198,42 @@ public class SessionSSH {
                 Logs.Println(proxy.Logger.ERROR, e.toString());
             }
         }
+//------------------------------------------------------------------------------        
+//                              receive Key Exchange Intial (20)
+//------------------------------------------------------------------------------
+
+        buf = read(buf);
+        if (buf.getCommand() != SSH_MSG_KEXINIT) {
+            in_kex = false;
+        }
+        System.err.println(in_kex);
+        Logs.Println(proxy.Logger.INFO, "SSH_MSG_KEXINIT received");
+
+        KeyExchange kex = receive_kexinit(buf);
+//------------------------------------------------------------------------------        
+//                              send Key Exchange Intial (20)
+//------------------------------------------------------------------------------
 
         //send kexinit 
         send_kexinit();
 
 //------------------------------------------------------------------------------        
-//                              receive Key Exchange Intial
+//                              receive DH Key exchange Intial (30)
 //------------------------------------------------------------------------------
-        buf = read(buf);
-        if (buf.getCommand() != SSH_MSG_KEXINIT) {
-            in_kex = false;
-
-        }
-        Logs.Println(proxy.Logger.INFO, "SSH_MSG_KEXINIT received");
-
-        KeyExchange kex = receive_kexinit(buf);
-//------------------------------------------------------------------------------        
-//                              receive Key Exchange Intial
-//------------------------------------------------------------------------------
-        
         while (true) {
             buf = read(buf);
+            System.out.println(kex.getState());
+            System.err.println(buf.getCommand());
             if (kex.getState() == buf.getCommand()) {
                 kex_start_time = System.currentTimeMillis();
                 boolean result = kex.next(buf);
-                proxy.Logs.Println(proxy.Logger.DEBUG, "test: ");
+
                 if (!result) {
                     //System.err.println("verify: "+result);
                     in_kex = false;
                     throw new ProxyException("verify: " + result);
                 }
-            } else {
+            } else {                
                 in_kex = false;
                 throw new ProxyException("invalid protocol(kex): " + buf.getCommand());
             }
@@ -245,40 +242,7 @@ public class SessionSSH {
             }
         }
 
-        try {
-            checkHost(host, port, kex);
-        } catch (ProxyException ee) {
-            in_kex = false;
-            throw ee;
-        }
-        send_newkeys();
 
-        // receive SSH_MSG_NEWKEYS(21)
-        buf = read(buf);
-        //System.err.println("read: 21 ? "+buf.getCommand());
-        if (buf.getCommand() == SSH_MSG_NEWKEYS) {
-
-            proxy.Logs.Println(proxy.Logger.INFO, "SSH_MSG_NEWKEYS received");
-
-            receive_newkeys(buf, kex);
-        } else {
-            in_kex = false;
-            throw new ProxyException("invalid protocol(newkyes): " + buf.getCommand());
-        }
-
-        //---------------------------------------------------------------------------------------------
-        boolean auth = false;
-        boolean auth_cancel = false;
-
-//        UserAuth ua = null;
-//        try {
-//            Class c = Class.forName(getConfig("userauth.none"));
-//            ua = (UserAuth) (c.newInstance());
-//        } catch (Exception e) {
-//            throw new JSchException(e.toString(), e);
-//        }
-//
-//        auth = ua.start(this);
     }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -286,6 +250,46 @@ public class SessionSSH {
 ////////////////////////////////////////////////////////////////////////////////
     private boolean in_kex = false; // if Proxy have a key this Client in_kex = true
 
+    private KeyExchange receive_kexinit(Buffer buf) throws Exception {
+        int j = buf.getInt();
+        if (j != buf.getLength()) {    // packet was compressed and
+            buf.getByte();           // j is the size of deflated packet.
+            I_S = new byte[buf.index - 5];
+        } else {
+            I_S = new byte[j - 1 - buf.getByte()];
+        }
+        System.arraycopy(buf.buffer, buf.s, I_S, 0, I_S.length);
+
+        if (!in_kex) {     // We are in rekeying activated by the remote!
+            send_kexinit();
+        }
+
+        guess = KeyExchange.guess(I_S, I_C);
+
+        if (guess == null) {
+            throw new ProxyException("Algorithm negotiation fail");
+        }
+
+        if (!isAuthed
+                && (guess[KeyExchange.PROPOSAL_ENC_ALGS_CTOS].equals("none")
+                || (guess[KeyExchange.PROPOSAL_ENC_ALGS_STOC].equals("none")))) {
+            throw new ProxyException("NONE Cipher should not be chosen before authentification is successed.");
+        }
+
+        KeyExchange kex = null;
+        try {
+            Class c = Class.forName(getConfig(guess[KeyExchange.PROPOSAL_KEX_ALGS]));
+            kex = (KeyExchange) (c.newInstance());
+        } catch (Exception e) {
+            throw new ProxyException(e.toString(), e);
+        }
+
+        kex.init(this, V_Proxy, V_Client, I_S, I_C);
+
+        return kex;
+    }
+
+    //-----------------------------------------
     private void send_kexinit() throws Exception {
         if (in_kex) {
             return;
@@ -339,46 +343,6 @@ public class SessionSSH {
         write(packet);
 
         Logs.Println(proxy.Logger.INFO, "SSH_MSG_KEXINIT sent");
-    }
-//-----------------------------------------
-
-    private KeyExchange receive_kexinit(Buffer buf) throws Exception {
-        int j = buf.getInt();
-        if (j != buf.getLength()) {    // packet was compressed and
-            buf.getByte();           // j is the size of deflated packet.
-            I_S = new byte[buf.index - 5];
-        } else {
-            I_S = new byte[j - 1 - buf.getByte()];
-        }
-        System.arraycopy(buf.buffer, buf.s, I_S, 0, I_S.length);
-
-        if (!in_kex) {     // We are in rekeying activated by the remote!
-            send_kexinit();
-        }
-
-        guess = KeyExchange.guess(I_S, I_C);
-
-        if (guess == null) {
-            throw new ProxyException("Algorithm negotiation fail");
-        }
-
-        if (!isAuthed
-                && (guess[KeyExchange.PROPOSAL_ENC_ALGS_CTOS].equals("none")
-                || (guess[KeyExchange.PROPOSAL_ENC_ALGS_STOC].equals("none")))) {
-            throw new ProxyException("NONE Cipher should not be chosen before authentification is successed.");
-        }
-
-        KeyExchange kex = null;
-        try {
-            Class c = Class.forName(getConfig(guess[KeyExchange.PROPOSAL_KEX_ALGS]));
-            kex = (KeyExchange) (c.newInstance());
-        } catch (Exception e) {
-            throw new ProxyException(e.toString(), e);
-        }
-  
-        kex.init(this, V_Proxy, V_Client, I_S, I_C);
-        
-        return kex;
     }
 
 //-----------------------------------------
@@ -516,6 +480,9 @@ public class SessionSSH {
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+    private int s2ccipher_size = 8;
+    private int c2scipher_size = 8;
+    int[] uncompress_len = new int[1];
 
     private String[] checkCiphers(String ciphers) {
         if (ciphers == null || ciphers.length() == 0) {
@@ -608,24 +575,27 @@ public class SessionSSH {
 //------------------------------------------------------------------------------
     public Buffer read(Buffer buf) throws Exception {
         int j = 0;
-
         while (true) {
 
             buf.reset();
             getByte(buf.buffer, buf.index, s2ccipher_size);
-
             buf.index += s2ccipher_size;
+
             if (s2ccipher != null) {
                 s2ccipher.update(buf.buffer, 0, s2ccipher_size, buf.buffer, 0);
             }
+
+            //packet cipher len
             j = ((buf.buffer[0] << 24) & 0xff000000)
                     | ((buf.buffer[1] << 16) & 0x00ff0000)
                     | ((buf.buffer[2] << 8) & 0x0000ff00)
                     | ((buf.buffer[3]) & 0x000000ff);
             // RFC 4253 6.1. Maximum Packet Length
+
             if (j < 5 || j > PACKET_MAX_SIZE) {
                 start_discard(buf, s2ccipher, s2cmac, j, PACKET_MAX_SIZE);
             }
+
             int need = j + 4 - s2ccipher_size;
             //if(need<0){
             //  throw new IOException("invalid data");
@@ -749,13 +719,10 @@ public class SessionSSH {
                 break;
             }
         }
-        buf.rewind();
+        buf.rewind(); //reset
         return buf;
     }
-    //-----------------------------------------------------
-    private int s2ccipher_size = 8;
-    private int c2scipher_size = 8;
-    int[] uncompress_len = new int[1];
+
 //------------------------------------------------------------------------------
     public void encode(Packet packet) throws Exception {
 
@@ -883,18 +850,24 @@ public class SessionSSH {
     }
 
     //----------------
-    void getByte(byte[] array, int begin, int length) throws IOException {
+    public void getByte(byte[] array, int begin, int length) throws IOException {
         do {
-            int completed = Parent.ClientInput.read(array, begin, length);
+            int completed = 0;
+            try {
+                completed = Parent.ClientInput.read(array, begin, length);
+            } catch (Exception e) {
+            }
             if (completed < 0) {
                 throw new IOException("End of IO Stream Read");
             }
             begin += completed;
             length -= completed;
         } while (length > 0);
-    }
-    //----------------
 
+        return;
+    }
+
+    //----------------
     public String getConfig(String key) {
         Object foo = null;
         if (config != null) {
@@ -928,4 +901,5 @@ public class SessionSSH {
 //        Parent.ClientOutput.flush();
 //    }
 ////////////////////////////////////////////////////////////////////////////////
+
 }
