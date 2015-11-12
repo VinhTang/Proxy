@@ -160,7 +160,7 @@ public class Buffer {
 
     public byte[] getMPInt() {
         int i = getInt();  // uint32
-        if (i < 0 || // bigger than 0x7fffffff
+        if (i  < 0 || // bigger than 0x7fffffff
                 i > 8 * 1024) {
             // TODO: an exception should be thrown.
             i = 8 * 1024; // the session will be broken, but working around OOME.

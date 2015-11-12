@@ -70,19 +70,19 @@ public class DHGEX extends ssh.KeyExchange {
             throw e;
         }
 
-        packet.reset();
-        buf.putByte((byte) SSH_MSG_KEX_DH_GEX_REQUEST);
-        buf.putInt(min);
-        buf.putInt(preferred);
-        buf.putInt(max);
-        session.write(packet);
-
-        proxy.Logs.Println(proxy.Logger.INFO,
-                "SSH_MSG_KEX_DH_GEX_REQUEST(" + min + "<" + preferred + "<" + max + ") sent");
-        proxy.Logs.Println(proxy.Logger.INFO,
-                "expecting SSH_MSG_KEX_DH_GEX_GROUP");
-
-        state = SSH_MSG_KEX_DH_GEX_GROUP;
+//        packet.reset();
+//        buf.putByte((byte) SSH_MSG_KEX_DH_GEX_REQUEST);
+//        buf.putInt(min);
+//        buf.putInt(preferred);
+//        buf.putInt(max);
+//        session.write(packet);
+//
+//        proxy.Logs.Println(proxy.Logger.INFO,
+//                "SSH_MSG_KEX_DH_GEX_REQUEST(" + min + "<" + preferred + "<" + max + ") sent");
+//        proxy.Logs.Println(proxy.Logger.INFO,
+//                "expecting SSH_MSG_KEX_DH_GEX_GROUP");
+//
+//        state = SSH_MSG_KEX_DH_GEX_GROUP;
     }
 
     public boolean next(Buffer _buf) throws Exception {

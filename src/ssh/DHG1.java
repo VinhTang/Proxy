@@ -33,8 +33,9 @@ public class DHG1 extends ssh.KeyExchange {
     private int state;
 
     DH dh;
+    KeyPair keyrsa;
+    
 //  HASH sha;
-
 //  byte[] K;
 //  byte[] H;
     byte[] V_S;
@@ -42,12 +43,12 @@ public class DHG1 extends ssh.KeyExchange {
     byte[] I_S;
     byte[] I_C;
 
-//  byte[] K_S;
+    //byte[] K_S;
     byte[] e;
 
     private Buffer buf;
     private Packet packet;
-
+    
     public void init(SessionSSH session,
             byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws Exception {
         this.session = session;
@@ -55,7 +56,7 @@ public class DHG1 extends ssh.KeyExchange {
         this.V_C = V_C;
         this.I_S = I_S;
         this.I_C = I_C;
-
+        
 //    sha=new SHA1();
 //    sha.init();
         try {
@@ -74,7 +75,7 @@ public class DHG1 extends ssh.KeyExchange {
             dh = (DH) (c.newInstance());
             dh.init();
         } catch (Exception e) {
-            proxy.Logs.Println(proxy.Logger.ERROR, e.toString());            
+            proxy.Logs.Println(proxy.Logger.ERROR, e.toString());
         }
 
         dh.setP(p);
@@ -85,7 +86,21 @@ public class DHG1 extends ssh.KeyExchange {
         // mpint e <- g^x mod p
         //         x is a random number (1 < x < (p-1)/2)
         e = dh.getE();
-
+        
+//        keyrsa = KeyPair.genKeyPair(SessionSSH.configure, 1);
+//        try {
+//            byte[] test = new byte[1024];
+//            test = keyrsa.getPrivateKey();
+//
+//            for (int i = 0; i < 1024; i++) {
+//                System.err.print("-" + test[i]);
+//            }
+//            System.out.println("ra");
+//
+//        } catch (Exception e) {
+//            System.err.println(e);
+//        }
+//        System.out.println(keyrsa.getFingerPrint());
         packet.reset();
         buf.putByte((byte) SSH_MSG_KEXDH_INIT);
         buf.putMPInt(e);
@@ -94,7 +109,7 @@ public class DHG1 extends ssh.KeyExchange {
         proxy.Logs.Println(proxy.Logger.INFO, "SSH_MSG_KEXDH_INIT sent");
         proxy.Logs.Println(proxy.Logger.INFO, "expecting SSH_MSG_KEXDH_REPLY");
 
-        state = SSH_MSG_KEXDH_INIT;
+        state = SSH_MSG_KEXDH_REPLY;
     }
 
     public boolean next(Buffer _buf) throws Exception {

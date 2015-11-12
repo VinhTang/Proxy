@@ -75,8 +75,10 @@ public class SessionSSH {
     Buffer buf;
     Packet packet;
     static Cookie cookie;   // cookie
+    private Configure configure;
     String[] guess = null;
 
+    private KeyPair keypair;
     private Cipher s2ccipher;
     private Cipher c2scipher;
     private MAC s2cmac;
@@ -127,7 +129,6 @@ public class SessionSSH {
 
         buf.putInt(this.lwsize);
         buf.putInt(this.lmpsize);
-        Configure config = new Configure();
 
     }
 //------------------------------------------------------------------------------
@@ -206,42 +207,72 @@ public class SessionSSH {
         if (buf.getCommand() != SSH_MSG_KEXINIT) {
             in_kex = false;
         }
-        System.err.println(in_kex);
         Logs.Println(proxy.Logger.INFO, "SSH_MSG_KEXINIT received");
+        receive_kexinit(buf);
 
-        KeyExchange kex = receive_kexinit(buf);
-//------------------------------------------------------------------------------        
+//------------------------------------------------------------------------------     
 //                              send Key Exchange Intial (20)
-//------------------------------------------------------------------------------
-
-        //send kexinit 
-        send_kexinit();
-
 //------------------------------------------------------------------------------        
-//                              receive DH Key exchange Intial (30)
+        send_kexinit();
+//------------------------------------------------------------------------------        
+//                              receive DH Key exchange 
 //------------------------------------------------------------------------------
-        while (true) {
-            buf = read(buf);
-            System.out.println(kex.getState());
-            System.err.println(buf.getCommand());
-            if (kex.getState() == buf.getCommand()) {
-                kex_start_time = System.currentTimeMillis();
-                boolean result = kex.next(buf);
-
-                if (!result) {
-                    //System.err.println("verify: "+result);
-                    in_kex = false;
-                    throw new ProxyException("verify: " + result);
-                }
-            } else {                
-                in_kex = false;
-                throw new ProxyException("invalid protocol(kex): " + buf.getCommand());
-            }
-            if (kex.getState() == KeyExchange.STATE_END) {
-                break;
-            }
+        KeyExchange kex = null;
+        try {
+            Class c = Class.forName(getConfig(guess[KeyExchange.PROPOSAL_KEX_ALGS]));
+            kex = (KeyExchange) (c.newInstance());
+        } catch (Exception e) {
+            throw new ProxyException(e.toString(), e);
         }
 
+        keypair = KeyPair.genKeyPair(configure, 2);
+        System.err.println(keypair.getFingerPrint());
+        keypair.setPassphrase("");
+        byte[] prv = new byte[keypair.getKeySize()];
+        prv = keypair.getPrivateKey();
+
+        byte[] pub = new byte[keypair.getKeySize()];
+        pub = keypair.getPublicKeyBlob();
+
+        for (int i = 0; i < keypair.getKeySize(); i++) {
+            System.err.print(prv[i]);
+        }
+        keypair.writePrivateKey("C:\\Users\\Milky_Way\\Desktop\\test");
+        keypair.writePublicKey("C:\\Users\\Milky_Way\\Desktop\\test.pub","" );
+        //----------------------
+        buf = read(buf);
+        int commmand = buf.getCommand();
+        switch (commmand) {
+
+            case SSH_MSG_KEXDH_INIT:
+                byte[] e = buf.getMPInt();
+                break;
+            case SSH_MSG_KEX_DH_GEX_REQUEST:
+                Logs.Println(proxy.Logger.ERROR, "SSH_MSG_KEX_DH_GEX_REQUEST: " + SSH_MSG_KEX_DH_GEX_REQUEST);
+                break;
+        }
+
+        kex.init(this, V_Proxy, V_Client, I_S, I_C);
+//------------------------------------------------------------------------------        
+//                              reply DH Key exchange 
+//------------------------------------------------------------------------------           
+
+        if (kex.getState() == buf.getCommand()) {
+            kex_start_time = System.currentTimeMillis();
+            boolean result = kex.next(buf);
+
+            if (!result) {
+                //System.err.println("verify: "+result);
+                in_kex = false;
+                throw new ProxyException("verify: " + result);
+            }
+        } else {
+            in_kex = false;
+            throw new ProxyException("invalid protocol(kex): " + buf.getCommand());
+        }
+//        if (kex.getState() == KeyExchange.STATE_END) {
+//            break;
+//        }
 
     }
 
@@ -250,7 +281,7 @@ public class SessionSSH {
 ////////////////////////////////////////////////////////////////////////////////
     private boolean in_kex = false; // if Proxy have a key this Client in_kex = true
 
-    private KeyExchange receive_kexinit(Buffer buf) throws Exception {
+    private void receive_kexinit(Buffer buf) throws Exception {
         int j = buf.getInt();
         if (j != buf.getLength()) {    // packet was compressed and
             buf.getByte();           // j is the size of deflated packet.
@@ -276,17 +307,6 @@ public class SessionSSH {
             throw new ProxyException("NONE Cipher should not be chosen before authentification is successed.");
         }
 
-        KeyExchange kex = null;
-        try {
-            Class c = Class.forName(getConfig(guess[KeyExchange.PROPOSAL_KEX_ALGS]));
-            kex = (KeyExchange) (c.newInstance());
-        } catch (Exception e) {
-            throw new ProxyException(e.toString(), e);
-        }
-
-        kex.init(this, V_Proxy, V_Client, I_S, I_C);
-
-        return kex;
     }
 
     //-----------------------------------------
@@ -345,7 +365,7 @@ public class SessionSSH {
         Logs.Println(proxy.Logger.INFO, "SSH_MSG_KEXINIT sent");
     }
 
-//-----------------------------------------
+    //-----------------------------------------
     private void send_newkeys() throws Exception {
         // send SSH_MSG_NEWKEYS(21)
         packet.reset();
