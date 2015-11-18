@@ -1,6 +1,6 @@
 /* -*-mode:java; c-basic-offset:2; indent-tabs-mode:nil -*- */
 /*
-Copyright (c) 2002-2010 ymnk, JCraft,Inc. All rights reserved.
+Copyright (c) 2002-2015 ymnk, JCraft,Inc. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
@@ -28,13 +28,12 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 package jcraft;
-
 import com.jcraft.jzlib.*;
-import com.jcraft.jsch.*;
+import ssh.*;
 
 public class Compression implements ssh.Compression {
   static private final int BUF_SIZE=4096;
-
+  private final int buffer_margin=32+20; // AES256 + HMACSHA1
   private int type;
   private ZStream stream;
   private byte[] tmpbuf=new byte[BUF_SIZE];
@@ -54,31 +53,17 @@ public class Compression implements ssh.Compression {
       this.type=INFLATER;
     }
   }
-  /*
-  static Compression getDeflater(int level){
-    Compression foo=new Compression();
-    foo.stream.deflateInit(level);
-    foo.type=DEFLATER;
-    return foo;
-  }
-  */
-  private byte[] inflated_buf;
-  /*
-  static Compression getInflater(){
-    Compression foo=new Compression();
-    foo.stream.inflateInit();
-    foo.inflated_buf=new byte[BUF_SIZE];
-    foo.type=INFLATER;
-    return foo;
-  }
-  */
 
-  public int compress(byte[] buf, int start, int len){
+  private byte[] inflated_buf;
+
+  public byte[] compress(byte[] buf, int start, int[] len){
     stream.next_in=buf;
     stream.next_in_index=start;
-    stream.avail_in=len-start;
+    stream.avail_in=len[0]-start;
     int status;
     int outputlen=start;
+    byte[] outputbuf=buf;
+    int tmp=0;
 
     do{
       stream.next_out=tmpbuf;
@@ -87,17 +72,23 @@ public class Compression implements ssh.Compression {
       status=stream.deflate(JZlib.Z_PARTIAL_FLUSH);
       switch(status){
         case JZlib.Z_OK:
-	    System.arraycopy(tmpbuf, 0,
-			     buf, outputlen,
-			     BUF_SIZE-stream.avail_out);
-	    outputlen+=(BUF_SIZE-stream.avail_out);
-	    break;
+          tmp=BUF_SIZE-stream.avail_out;
+          if(outputbuf.length<outputlen+tmp+buffer_margin){
+            byte[] foo=new byte[(outputlen+tmp+buffer_margin)*2];
+            System.arraycopy(outputbuf, 0, foo, 0, outputbuf.length);
+            outputbuf=foo;
+          }
+          System.arraycopy(tmpbuf, 0, outputbuf, outputlen, tmp);
+          outputlen+=tmp;
+          break;
         default:
 	    System.err.println("compress: deflate returnd "+status);
       }
     }
     while(stream.avail_out==0);
-    return outputlen;
+
+    len[0]=outputlen;
+    return outputbuf;
   }
 
   public byte[] uncompress(byte[] buffer, int start, int[] length){
@@ -115,7 +106,10 @@ public class Compression implements ssh.Compression {
       switch(status){
         case JZlib.Z_OK:
 	  if(inflated_buf.length<inflated_end+BUF_SIZE-stream.avail_out){
-            byte[] foo=new byte[inflated_end+BUF_SIZE-stream.avail_out];
+            int len=inflated_buf.length*2;
+            if(len<inflated_end+BUF_SIZE-stream.avail_out)
+              len=inflated_end+BUF_SIZE-stream.avail_out;
+            byte[] foo=new byte[len];
 	    System.arraycopy(inflated_buf, 0, foo, 0, inflated_end);
 	    inflated_buf=foo;
 	  }

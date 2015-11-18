@@ -15,7 +15,8 @@ public class Configure {
 
     static {
 //  config.put("kex", "diffie-hellman-group-exchange-sha1");
-        config.put("kex", "diffie-hellman-group1-sha1,diffie-hellman-group-exchange-sha1");
+       // config.put("kex", "diffie-hellman-group1-sha1,diffie-hellman-group-exchange-sha1");
+        config.put("kex", "diffie-hellman-group1-sha1");
         config.put("server_host_key", "ssh-rsa,ssh-dss");
 //    config.put("server_host_key", "ssh-dss,ssh-rsa");
 
@@ -134,4 +135,5 @@ public class Configure {
         }
     }
 
+    
 }

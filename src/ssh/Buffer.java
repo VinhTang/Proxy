@@ -5,8 +5,6 @@ package ssh;
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
-
 public class Buffer {
 
     final byte[] tmp = new byte[4];
@@ -160,7 +158,7 @@ public class Buffer {
 
     public byte[] getMPInt() {
         int i = getInt();  // uint32
-        if (i  < 0 || // bigger than 0x7fffffff
+        if (i < 0 || // bigger than 0x7fffffff
                 i > 8 * 1024) {
             // TODO: an exception should be thrown.
             i = 8 * 1024; // the session will be broken, but working around OOME.
@@ -206,7 +204,6 @@ public class Buffer {
     public void reset() {
         index = 0;
         s = 0;
-        
     }
 
     public void shift() {
@@ -227,10 +224,85 @@ public class Buffer {
     }
 
     void checkFreeSize(int n) {
-        if (buffer.length < index + n) {
-            byte[] tmp = new byte[buffer.length * 2];
+        int size = index + n + SessionSSH.buffer_margin;
+        if (buffer.length < size) {
+            int i = buffer.length * 2;
+            if (i < size) {
+                i = size;
+            }
+            byte[] tmp = new byte[i];
             System.arraycopy(buffer, 0, tmp, 0, index);
             buffer = tmp;
         }
     }
+
+    byte[][] getBytes(int n, String msg) throws ProxyException {
+        byte[][] tmp = new byte[n][];
+        for (int i = 0; i < n; i++) {
+            int j = getInt();
+            if (getLength() < j) {
+                throw new ProxyException(msg);
+            }
+            tmp[i] = new byte[j];
+            getByte(tmp[i]);
+        }
+        return tmp;
+    }
+
+    /*
+     static Buffer fromBytes(byte[]... args){
+     int length = args.length*4;
+     for(int i = 0; i < args.length; i++){
+     length += args[i].length;
+     }
+     Buffer buf = new Buffer(length);
+     for(int i = 0; i < args.length; i++){
+     buf.putString(args[i]);
+     }
+     return buf;
+     }
+     */
+    static Buffer fromBytes(byte[][] args) {
+        int length = args.length * 4;
+        for (int i = 0; i < args.length; i++) {
+            length += args[i].length;
+        }
+        Buffer buf = new Buffer(length);
+        for (int i = 0; i < args.length; i++) {
+            buf.putString(args[i]);
+        }
+        return buf;
+    }
+
+
+    /*
+     static String[] chars={
+     "0","1","2","3","4","5","6","7","8","9", "a","b","c","d","e","f"
+     };
+     static void dump_buffer(){
+     int foo;
+     for(int i=0; i<tmp_buffer_index; i++){
+     foo=tmp_buffer[i]&0xff;
+     System.err.print(chars[(foo>>>4)&0xf]);
+     System.err.print(chars[foo&0xf]);
+     if(i%16==15){
+     System.err.println("");
+     continue;
+     }
+     if(i>0 && i%2==1){
+     System.err.print(" ");
+     }
+     }
+     System.err.println("");
+     }
+     static void dump(byte[] b){
+     dump(b, 0, b.length);
+     }
+     static void dump(byte[] b, int s, int l){
+     for(int i=s; i<s+l; i++){
+     System.err.print(Integer.toHexString(b[i]&0xff)+":");
+     }
+     System.err.println("");
+     }
+     */
 }

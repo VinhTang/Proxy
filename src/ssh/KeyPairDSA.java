@@ -1,6 +1,6 @@
 /* -*-mode:java; c-basic-offset:2; indent-tabs-mode:nil -*- */
 /*
- Copyright (c) 2002-2010 ymnk, JCraft,Inc. All rights reserved.
+ Copyright (c) 2002-2015 ymnk, JCraft,Inc. All rights reserved.
 
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are met:
@@ -40,7 +40,24 @@ public class KeyPairDSA extends KeyPair {
     private int key_size = 1024;
 
     public KeyPairDSA(Configure jsch) {
+        this(jsch, null, null, null, null, null);
+    }
+
+    public KeyPairDSA(Configure jsch,
+            byte[] P_array,
+            byte[] Q_array,
+            byte[] G_array,
+            byte[] pub_array,
+            byte[] prv_array) {
         super(jsch);
+        this.P_array = P_array;
+        this.Q_array = Q_array;
+        this.G_array = G_array;
+        this.pub_array = pub_array;
+        this.prv_array = prv_array;
+        if (P_array != null) {
+            key_size = (new java.math.BigInteger(P_array)).bitLength();
+        }
     }
 
     void generate(int key_size) throws ProxyException {
@@ -112,9 +129,24 @@ public class KeyPairDSA extends KeyPair {
                     Q_array = buf.getMPIntBits();
                     pub_array = buf.getMPIntBits();
                     prv_array = buf.getMPIntBits();
+                    if (P_array != null) {
+                        key_size = (new java.math.BigInteger(P_array)).bitLength();
+                    }
                     return true;
                 }
                 return false;
+            } else if (vendor == VENDOR_PUTTY) {
+                Buffer buf = new Buffer(plain);
+                buf.skip(plain.length);
+
+                try {
+                    byte[][] tmp = buf.getBytes(1, "");
+                    prv_array = tmp[0];
+                } catch (ProxyException e) {
+                    return false;
+                }
+
+                return true;
             }
 
             int index = 0;
@@ -211,8 +243,12 @@ public class KeyPairDSA extends KeyPair {
             prv_array = new byte[length];
             System.arraycopy(plain, index, prv_array, 0, length);
             index += length;
+
+            if (P_array != null) {
+                key_size = (new java.math.BigInteger(P_array)).bitLength();
+            }
         } catch (Exception e) {
-            //System.err.println(e);
+      //System.err.println(e);
             //e.printStackTrace();
             return false;
         }
@@ -228,18 +264,13 @@ public class KeyPairDSA extends KeyPair {
         if (P_array == null) {
             return null;
         }
-
-        Buffer buf = new Buffer(sshdss.length + 4
-                + P_array.length + 4
-                + Q_array.length + 4
-                + G_array.length + 4
-                + pub_array.length + 4);
-        buf.putString(sshdss);
-        buf.putString(P_array);
-        buf.putString(Q_array);
-        buf.putString(G_array);
-        buf.putString(pub_array);
-        return buf.buffer;
+        byte[][] tmp = new byte[5][];
+        tmp[0] = sshdss;
+        tmp[1] = P_array;
+        tmp[2] = Q_array;
+        tmp[3] = G_array;
+        tmp[4] = pub_array;
+        return Buffer.fromBytes(tmp).buffer;
     }
 
     private static final byte[] sshdss = proxy.Tools.str2byte("ssh-dss");
@@ -254,6 +285,82 @@ public class KeyPairDSA extends KeyPair {
 
     public int getKeySize() {
         return key_size;
+    }
+
+    public byte[] getSignature(byte[] data) {
+        try {
+            Class c = Class.forName((String) jsch.getConfig("signature.dss"));
+            SignatureDSA dsa = (SignatureDSA) (c.newInstance());
+            dsa.init();
+            dsa.setPrvKey(prv_array, P_array, Q_array, G_array);
+
+            dsa.update(data);
+            byte[] sig = dsa.sign();
+            byte[][] tmp = new byte[2][];
+            tmp[0] = sshdss;
+            tmp[1] = sig;
+            return Buffer.fromBytes(tmp).buffer;
+        } catch (Exception e) {
+            //System.err.println("e "+e);
+        }
+        return null;
+    }
+
+    public Signature getVerifier() {
+        try {
+            Class c = Class.forName((String) jsch.getConfig("signature.dss"));
+            SignatureDSA dsa = (SignatureDSA) (c.newInstance());
+            dsa.init();
+
+            if (pub_array == null && P_array == null && getPublicKeyBlob() != null) {
+                Buffer buf = new Buffer(getPublicKeyBlob());
+                buf.getString();
+                P_array = buf.getString();
+                Q_array = buf.getString();
+                G_array = buf.getString();
+                pub_array = buf.getString();
+            }
+
+            dsa.setPubKey(pub_array, P_array, Q_array, G_array);
+            return dsa;
+        } catch (Exception e) {
+            //System.err.println("e "+e);
+        }
+        return null;
+    }
+
+    static KeyPair fromSSHAgent(Configure jsch, Buffer buf) throws ProxyException {
+
+        byte[][] tmp = buf.getBytes(7, "invalid key format");
+
+        byte[] P_array = tmp[1];
+        byte[] Q_array = tmp[2];
+        byte[] G_array = tmp[3];
+        byte[] pub_array = tmp[4];
+        byte[] prv_array = tmp[5];
+        KeyPairDSA kpair = new KeyPairDSA(jsch,
+                P_array, Q_array, G_array,
+                pub_array, prv_array);
+        kpair.publicKeyComment = new String(tmp[6]);
+        kpair.vendor = VENDOR_OPENSSH;
+        return kpair;
+    }
+
+    public byte[] forSSHAgent() throws ProxyException {
+        if (isEncrypted()) {
+            throw new ProxyException("key is encrypted.");
+        }
+        Buffer buf = new Buffer();
+        buf.putString(sshdss);
+        buf.putString(P_array);
+        buf.putString(Q_array);
+        buf.putString(G_array);
+        buf.putString(pub_array);
+        buf.putString(prv_array);
+        buf.putString(proxy.Tools.str2byte(publicKeyComment));
+        byte[] result = new byte[buf.getLength()];
+        buf.getByte(result, 0, result.length);
+        return result;
     }
 
     public void dispose() {

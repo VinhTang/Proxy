@@ -56,7 +56,7 @@ public class Proxy extends Thread {
 
     public static final int DEFAULT_TIMEOUT = 10;
 
-    public final boolean Have_Authentication = true; //SOCKs 5 Authentication Method
+    public final boolean Have_Authentication = false; //SOCKs 5 Authentication Method
     ////////////////////////////////////////////////////////////////////////////
 
     public Proxy(SOCKServer SockServer, Socket ClientSocket, boolean fLog) {

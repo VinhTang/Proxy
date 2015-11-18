@@ -1,23 +1,36 @@
-
 package ssh;
+
+import java.math.BigInteger;
 
 public class KeyPairRSA extends KeyPair {
 
-    private byte[] prv_array;
-    private byte[] pub_array;
-    private byte[] n_array;
+    private byte[] n_array;   // modulus   p multiply q
+    private byte[] pub_array; // e         
+    private byte[] prv_array; // d         e^-1 mod (p-1)(q-1)
 
     private byte[] p_array;  // prime p
     private byte[] q_array;  // prime q
-    private byte[] ep_array; // prime exponent p
-    private byte[] eq_array; // prime exponent q
-    private byte[] c_array;  // coefficient
+    private byte[] ep_array; // prime exponent p  dmp1 == prv mod (p-1)
+    private byte[] eq_array; // prime exponent q  dmq1 == prv mod (q-1)
+    private byte[] c_array;  // coefficient  iqmp == modinv(q, p) == q^-1 mod p
 
-    //private int key_size=0;
     private int key_size = 1024;
 
     public KeyPairRSA(Configure jsch) {
+        this(jsch, null, null, null);
+    }
+
+    public KeyPairRSA(Configure jsch,
+            byte[] n_array,
+            byte[] pub_array,
+            byte[] prv_array) {
         super(jsch);
+        this.n_array = n_array;
+        this.pub_array = pub_array;
+        this.prv_array = prv_array;
+        if (n_array != null) {
+            key_size = (new java.math.BigInteger(n_array)).bitLength();
+        }
     }
 
     void generate(int key_size) throws ProxyException {
@@ -88,16 +101,30 @@ public class KeyPairRSA extends KeyPair {
     }
 
     boolean parse(byte[] plain) {
-        /*
-         byte[] p_array;
-         byte[] q_array;
-         byte[] dmp1_array;
-         byte[] dmq1_array;
-         byte[] iqmp_array;
-         */
+
         try {
             int index = 0;
             int length = 0;
+
+            if (vendor == VENDOR_PUTTY) {
+                Buffer buf = new Buffer(plain);
+                buf.skip(plain.length);
+
+                try {
+                    byte[][] tmp = buf.getBytes(4, "");
+                    prv_array = tmp[0];
+                    p_array = tmp[1];
+                    q_array = tmp[2];
+                    c_array = tmp[3];
+                } catch (ProxyException e) {
+                    return false;
+                }
+
+                getEPArray();
+                getEQArray();
+
+                return true;
+            }
 
             if (vendor == VENDOR_FSECURE) {
                 if (plain[index] != 0x30) {                  // FSecure
@@ -108,11 +135,34 @@ public class KeyPairRSA extends KeyPair {
                     byte[] u_array = buf.getMPIntBits();
                     p_array = buf.getMPIntBits();
                     q_array = buf.getMPIntBits();
+                    if (n_array != null) {
+                        key_size = (new java.math.BigInteger(n_array)).bitLength();
+                    }
+
+                    getEPArray();
+                    getEQArray();
+                    getCArray();
+
                     return true;
                 }
                 return false;
             }
 
+            /*
+             Key must be in the following ASN.1 DER encoding,
+             RSAPrivateKey ::= SEQUENCE {
+             version           Version,
+             modulus           INTEGER,  -- n
+             publicExponent    INTEGER,  -- e
+             privateExponent   INTEGER,  -- d
+             prime1            INTEGER,  -- p
+             prime2            INTEGER,  -- q
+             exponent1         INTEGER,  -- d mod (p-1)
+             exponent2         INTEGER,  -- d mod (q-1)
+             coefficient       INTEGER,  -- (inverse of q) mod p
+             otherPrimeInfos   OtherPrimeInfos OPTIONAL
+             }
+             */
             index++; // SEQUENCE
             length = plain[index++] & 0xff;
             if ((length & 0x80) != 0) {
@@ -137,9 +187,6 @@ public class KeyPairRSA extends KeyPair {
             }
             index += length;
 
-//System.err.println("int: len="+length);
-//System.err.print(Integer.toHexString(plain[index-1]&0xff)+":");
-//System.err.println("");
             index++;
             length = plain[index++] & 0xff;
             if ((length & 0x80) != 0) {
@@ -152,13 +199,7 @@ public class KeyPairRSA extends KeyPair {
             n_array = new byte[length];
             System.arraycopy(plain, index, n_array, 0, length);
             index += length;
-            /*
-             System.err.println("int: N len="+length);
-             for(int i=0; i<n_array.length; i++){
-             System.err.print(Integer.toHexString(n_array[i]&0xff)+":");
-             }
-             System.err.println("");
-             */
+
             index++;
             length = plain[index++] & 0xff;
             if ((length & 0x80) != 0) {
@@ -171,13 +212,7 @@ public class KeyPairRSA extends KeyPair {
             pub_array = new byte[length];
             System.arraycopy(plain, index, pub_array, 0, length);
             index += length;
-            /*
-             System.err.println("int: E len="+length);
-             for(int i=0; i<pub_array.length; i++){
-             System.err.print(Integer.toHexString(pub_array[i]&0xff)+":");
-             }
-             System.err.println("");
-             */
+
             index++;
             length = plain[index++] & 0xff;
             if ((length & 0x80) != 0) {
@@ -190,13 +225,6 @@ public class KeyPairRSA extends KeyPair {
             prv_array = new byte[length];
             System.arraycopy(plain, index, prv_array, 0, length);
             index += length;
-            /*
-             System.err.println("int: prv len="+length);
-             for(int i=0; i<prv_array.length; i++){
-             System.err.print(Integer.toHexString(prv_array[i]&0xff)+":");
-             }
-             System.err.println("");
-             */
 
             index++;
             length = plain[index++] & 0xff;
@@ -210,13 +238,7 @@ public class KeyPairRSA extends KeyPair {
             p_array = new byte[length];
             System.arraycopy(plain, index, p_array, 0, length);
             index += length;
-            /*
-             System.err.println("int: P len="+length);
-             for(int i=0; i<p_array.length; i++){
-             System.err.print(Integer.toHexString(p_array[i]&0xff)+":");
-             }
-             System.err.println("");
-             */
+
             index++;
             length = plain[index++] & 0xff;
             if ((length & 0x80) != 0) {
@@ -229,13 +251,7 @@ public class KeyPairRSA extends KeyPair {
             q_array = new byte[length];
             System.arraycopy(plain, index, q_array, 0, length);
             index += length;
-            /*
-             System.err.println("int: q len="+length);
-             for(int i=0; i<q_array.length; i++){
-             System.err.print(Integer.toHexString(q_array[i]&0xff)+":");
-             }
-             System.err.println("");
-             */
+
             index++;
             length = plain[index++] & 0xff;
             if ((length & 0x80) != 0) {
@@ -248,13 +264,7 @@ public class KeyPairRSA extends KeyPair {
             ep_array = new byte[length];
             System.arraycopy(plain, index, ep_array, 0, length);
             index += length;
-            /*
-             System.err.println("int: ep len="+length);
-             for(int i=0; i<ep_array.length; i++){
-             System.err.print(Integer.toHexString(ep_array[i]&0xff)+":");
-             }
-             System.err.println("");
-             */
+
             index++;
             length = plain[index++] & 0xff;
             if ((length & 0x80) != 0) {
@@ -267,13 +277,7 @@ public class KeyPairRSA extends KeyPair {
             eq_array = new byte[length];
             System.arraycopy(plain, index, eq_array, 0, length);
             index += length;
-            /*
-             System.err.println("int: eq len="+length);
-             for(int i=0; i<eq_array.length; i++){
-             System.err.print(Integer.toHexString(eq_array[i]&0xff)+":");
-             }
-             System.err.println("");
-             */
+
             index++;
             length = plain[index++] & 0xff;
             if ((length & 0x80) != 0) {
@@ -286,13 +290,11 @@ public class KeyPairRSA extends KeyPair {
             c_array = new byte[length];
             System.arraycopy(plain, index, c_array, 0, length);
             index += length;
-            /*
-             System.err.println("int: c len="+length);
-             for(int i=0; i<c_array.length; i++){
-             System.err.print(Integer.toHexString(c_array[i]&0xff)+":");
-             }
-             System.err.println("");
-             */
+
+            if (n_array != null) {
+                key_size = (new java.math.BigInteger(n_array)).bitLength();
+            }
+
         } catch (Exception e) {
             //System.err.println(e);
             return false;
@@ -301,22 +303,27 @@ public class KeyPairRSA extends KeyPair {
     }
 
     public byte[] getPublicKeyBlob() {
-        byte[] foo = super.getPublicKeyBlob();
-        if (foo != null) {
-            return foo;
-        }
-
-        if (pub_array == null) {
-            return null;
-        }
-
-        Buffer buf = new Buffer(sshrsa.length + 4
-                + pub_array.length + 4
-                + n_array.length + 4);
+//        byte[] foo = super.getPublicKeyBlob();
+//        if (foo != null) {
+//            return foo;
+//        }
+//
+//        if (pub_array == null) {
+//            return null;
+//        }
+//        byte[][] tmp = new byte[3][];
+//        tmp[0] = sshrsa;
+//        tmp[1] = pub_array; System.err.println("EE:"+pub_array.toString());
+//        tmp[2] = n_array;System.out.println("N : "+ n_array.toString());
+//        return Buffer.fromBytes(tmp).buffer;  
+       
+        Buffer buf = new Buffer();
         buf.putString(sshrsa);
-        buf.putString(pub_array);
-        buf.putString(n_array);
-        return buf.buffer;
+        buf.putMPInt(pub_array);
+        buf.putMPInt(n_array);
+        byte[] foo = new byte[buf.index];
+        System.arraycopy(buf.buffer, 0, foo, 0, buf.index);
+        return foo;
     }
 
     private static final byte[] sshrsa = proxy.Tools.str2byte("ssh-rsa");
@@ -333,8 +340,109 @@ public class KeyPairRSA extends KeyPair {
         return key_size;
     }
 
+    public byte[] getSignature(byte[] data) {
+        try {
+            Class c = Class.forName((String) jsch.getConfig("signature.rsa"));
+            SignatureRSA rsa = (SignatureRSA) (c.newInstance());
+            rsa.init();
+            rsa.setPrvKey(prv_array, n_array);
+
+            rsa.update(data);
+            byte[] sig = rsa.sign();
+
+//            byte[][] tmp = new byte[2][];
+//            tmp[0] = sshrsa;
+//            tmp[1] = sig;
+//            return Buffer.fromBytes(tmp).buffer;
+            Buffer buf = new Buffer();
+            buf.putString(sshrsa);
+            buf.putString(sig);
+            byte[] foo = new byte[buf.index];
+            System.arraycopy(buf.buffer, 0, foo, 0, buf.index);
+            return foo;
+        } catch (Exception e) {
+        }
+        return null;
+    }
+
+    public Signature getVerifier() {
+        try {
+            Class c = Class.forName((String) jsch.getConfig("signature.rsa"));
+            SignatureRSA rsa = (SignatureRSA) (c.newInstance());
+            rsa.init();
+
+            if (pub_array == null && n_array == null && getPublicKeyBlob() != null) {
+                Buffer buf = new Buffer(getPublicKeyBlob());
+                buf.getString();
+                pub_array = buf.getString();
+                n_array = buf.getString();
+            }
+
+            rsa.setPubKey(pub_array, n_array);
+            return rsa;
+        } catch (Exception e) {
+        }
+        return null;
+    }
+
+    static KeyPair fromSSHAgent(Configure jsch, Buffer buf) throws ProxyException {
+
+        byte[][] tmp = buf.getBytes(8, "invalid key format");
+
+        byte[] n_array = tmp[1];
+        byte[] pub_array = tmp[2];
+        byte[] prv_array = tmp[3];
+        KeyPairRSA kpair = new KeyPairRSA(jsch, n_array, pub_array, prv_array);
+        kpair.c_array = tmp[4];     // iqmp
+        kpair.p_array = tmp[5];
+        kpair.q_array = tmp[6];
+        kpair.publicKeyComment = new String(tmp[7]);
+        kpair.vendor = VENDOR_OPENSSH;
+        return kpair;
+    }
+
+    public byte[] forSSHAgent() throws ProxyException {
+        if (isEncrypted()) {
+            throw new ProxyException("key is encrypted.");
+        }
+        Buffer buf = new Buffer();
+        buf.putString(sshrsa);
+        buf.putString(n_array);
+        buf.putString(pub_array);
+        buf.putString(prv_array);
+        buf.putString(getCArray());
+        buf.putString(p_array);
+        buf.putString(q_array);
+        buf.putString(proxy.Tools.str2byte(publicKeyComment));
+        byte[] result = new byte[buf.getLength()];
+        buf.getByte(result, 0, result.length);
+        return result;
+    }
+
+    private byte[] getEPArray() {
+        if (ep_array == null) {
+            ep_array = (new BigInteger(prv_array)).mod(new BigInteger(p_array).subtract(BigInteger.ONE)).toByteArray();
+        }
+        return ep_array;
+    }
+
+    private byte[] getEQArray() {
+        if (eq_array == null) {
+            eq_array = (new BigInteger(prv_array)).mod(new BigInteger(q_array).subtract(BigInteger.ONE)).toByteArray();
+        }
+        return eq_array;
+    }
+
+    private byte[] getCArray() {
+        if (c_array == null) {
+            c_array = (new BigInteger(q_array)).modInverse(new BigInteger(p_array)).toByteArray();
+        }
+        return c_array;
+    }
+
     public void dispose() {
         super.dispose();
         proxy.Tools.bzero(prv_array);
     }
+
 }

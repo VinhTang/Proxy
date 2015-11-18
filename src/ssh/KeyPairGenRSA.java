@@ -5,13 +5,12 @@ package ssh;
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
-
 /**
  *
  * @author Milky_Way
  */
-public interface KeyPairGenRSA {
+public interface KeyPairGenRSA extends java.io.Serializable {
+
 
     void init(int key_size) throws Exception;
 

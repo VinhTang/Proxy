@@ -79,8 +79,10 @@ public class SOCK5 extends SOCK4 {
                 Reply_Auth(true);
                 Authenticate();
             } else {
-                Refuse_Authentication("SOCKS 5 - Not Supported Authentication!");
+                System.err.println("nho sua lai cho nay");
+//                Refuse_Authentication("SOCKS 5 - Not Supported Authentication!");
                 Reply_Auth(false);
+                return;
             }
         } else {
             Refuse_Authentication("Incorrect SOCKS version : " + SOCKS_Version);

@@ -7,44 +7,40 @@ package ssh;
 
 import java.io.*;
 
-public class KnownHosts implements ssh.HostKeyRepository {
+public class KnownHosts implements HostKeyRepository {
 
     private static final String _known_hosts = "known_hosts";
 
-    /*
-     static final int SSHDSS=0;
-     static final int SSHRSA=1;
-     static final int UNKNOWN=2;
-     */
     private Configure jsch = null;
     private String known_hosts = null;
     private java.util.Vector pool = null;
 
     private MAC hmacsha1 = null;
 
-    KnownHosts(Configure jsch) {
+    public KnownHosts(Configure jsch) {
         super();
         this.jsch = jsch;
         pool = new java.util.Vector();
     }
 
-    void setKnownHosts(String foo) throws ProxyException {
+    void setKnownHosts(String filename) throws ProxyException {
         try {
-            known_hosts = foo;
-            FileInputStream fis = new FileInputStream(foo);
+            known_hosts = filename;
+            FileInputStream fis = new FileInputStream(proxy.Tools.checkTilde(filename));
             setKnownHosts(fis);
         } catch (FileNotFoundException e) {
+            throw new ProxyException(e.toString(), (Throwable) e);
         }
     }
 
-    void setKnownHosts(InputStream foo) throws ProxyException {
+    void setKnownHosts(InputStream input) throws ProxyException {
         pool.removeAllElements();
         StringBuffer sb = new StringBuffer();
         byte i;
         int j;
         boolean error = false;
         try {
-            InputStream fis = foo;
+            InputStream fis = input;
             String host;
             String key = null;
             int type;
@@ -111,6 +107,43 @@ public class KnownHosts implements ssh.HostKeyRepository {
                     continue loop;
                 }
 
+                while (j < bufl) {
+                    i = buf[j];
+                    if (i == ' ' || i == '\t') {
+                        j++;
+                        continue;
+                    }
+                    break;
+                }
+
+                String marker = "";
+                if (host.charAt(0) == '@') {
+                    marker = host;
+
+                    sb.setLength(0);
+                    while (j < bufl) {
+                        i = buf[j++];
+                        if (i == 0x20 || i == '\t') {
+                            break;
+                        }
+                        sb.append((char) i);
+                    }
+                    host = sb.toString();
+                    if (j >= bufl || host.length() == 0) {
+                        addInvalidLine(proxy.Tools.byte2str(buf, 0, bufl));
+                        continue loop;
+                    }
+
+                    while (j < bufl) {
+                        i = buf[j];
+                        if (i == ' ' || i == '\t') {
+                            j++;
+                            continue;
+                        }
+                        break;
+                    }
+                }
+
                 sb.setLength(0);
                 type = -1;
                 while (j < bufl) {
@@ -120,16 +153,24 @@ public class KnownHosts implements ssh.HostKeyRepository {
                     }
                     sb.append((char) i);
                 }
-                if (sb.toString().equals("ssh-dss")) {
-                    type = HostKey.SSHDSS;
-                } else if (sb.toString().equals("ssh-rsa")) {
-                    type = HostKey.SSHRSA;
+                String tmp = sb.toString();
+                if (HostKey.name2type(tmp) != HostKey.UNKNOWN) {
+                    type = HostKey.name2type(tmp);
                 } else {
                     j = bufl;
                 }
                 if (j >= bufl) {
                     addInvalidLine(proxy.Tools.byte2str(buf, 0, bufl));
                     continue loop;
+                }
+
+                while (j < bufl) {
+                    i = buf[j];
+                    if (i == ' ' || i == '\t') {
+                        j++;
+                        continue;
+                    }
+                    break;
                 }
 
                 sb.setLength(0);
@@ -141,6 +182,9 @@ public class KnownHosts implements ssh.HostKeyRepository {
                     if (i == 0x0a) {
                         break;
                     }
+                    if (i == 0x20 || i == '\t') {
+                        break;
+                    }
                     sb.append((char) i);
                 }
                 key = sb.toString();
@@ -149,14 +193,48 @@ public class KnownHosts implements ssh.HostKeyRepository {
                     continue loop;
                 }
 
+                while (j < bufl) {
+                    i = buf[j];
+                    if (i == ' ' || i == '\t') {
+                        j++;
+                        continue;
+                    }
+                    break;
+                }
+
+                /**
+                 * "man sshd" has following descriptions, Note that the lines in
+                 * these files are typically hundreds of characters long, and
+                 * you definitely don't want to type in the host keys by hand.
+                 * Rather, generate them by a script, ssh-keyscan(1) or by
+                 * taking /usr/local/etc/ssh_host_key.pub and adding the host
+                 * names at the front. This means that a comment is allowed to
+                 * appear at the end of each key entry.
+                 */
+                String comment = null;
+                if (j < bufl) {
+                    sb.setLength(0);
+                    while (j < bufl) {
+                        i = buf[j++];
+                        if (i == 0x0d) {
+                            continue;
+                        }
+                        if (i == 0x0a) {
+                            break;
+                        }
+                        sb.append((char) i);
+                    }
+                    comment = sb.toString();
+                }
+
                 //System.err.println(host);
                 //System.err.println("|"+key+"|");
                 HostKey hk = null;
-                hk = new HashedHostKey(host, type,
-                        proxy.Tools.fromBase64(proxy.Tools.str2byte(key), 0,key.length()));
+                hk = new HashedHostKey(marker, host, type,
+                        proxy.Tools.fromBase64(proxy.Tools.str2byte(key), 0,
+                                key.length()), comment);
                 pool.addElement(hk);
             }
-            fis.close();
             if (error) {
                 throw new ProxyException("KnownHosts: invalid format");
             }
@@ -168,6 +246,12 @@ public class KnownHosts implements ssh.HostKeyRepository {
                 throw new ProxyException(e.toString(), (Throwable) e);
             }
             throw new ProxyException(e.toString());
+        } finally {
+            try {
+                input.close();
+            } catch (IOException e) {
+                throw new ProxyException(e.toString(), (Throwable) e);
+            }
         }
     }
 
@@ -190,14 +274,18 @@ public class KnownHosts implements ssh.HostKeyRepository {
             return result;
         }
 
-        int type = getType(key);
-        HostKey hk;
+        HostKey hk = null;
+        try {
+            hk = new HostKey(host, HostKey.GUESS, key);
+        } catch (ProxyException e) {  // unsupported key
+            return result;
+        }
 
         synchronized (pool) {
             for (int i = 0; i < pool.size(); i++) {
-                hk = (HostKey) (pool.elementAt(i));
-                if (hk.isMatched(host) && hk.type == type) {
-                    if (proxy.Tools.array_equals(hk.key, key)) {
+                HostKey _hk = (HostKey) (pool.elementAt(i));
+                if (_hk.isMatched(host) && _hk.type == hk.type) {
+                    if (proxy.Tools.array_equals(_hk.key, key)) {
                         return OK;
                     } else {
                         result = CHANGED;
@@ -247,7 +335,7 @@ public class KnownHosts implements ssh.HostKeyRepository {
         String bar = getKnownHostsRepositoryID();
         if (bar != null) {
             boolean foo = true;
-            File goo = new File(bar);
+            File goo = new File(proxy.Tools.checkTilde(bar));
             if (!goo.exists()) {
                 foo = false;
                 if (userinfo != null) {
@@ -284,12 +372,12 @@ public class KnownHosts implements ssh.HostKeyRepository {
     }
 
     public HostKey[] getHostKey() {
-        return getHostKey(null, null);
+        return getHostKey(null, (String) null);
     }
 
     public HostKey[] getHostKey(String host, String type) {
         synchronized (pool) {
-            int count = 0;
+            java.util.ArrayList v = new java.util.ArrayList();
             for (int i = 0; i < pool.size(); i++) {
                 HostKey hk = (HostKey) pool.elementAt(i);
                 if (hk.type == HostKey.UNKNOWN) {
@@ -298,23 +386,21 @@ public class KnownHosts implements ssh.HostKeyRepository {
                 if (host == null
                         || (hk.isMatched(host)
                         && (type == null || hk.getType().equals(type)))) {
-                    count++;
+                    v.add(hk);
                 }
             }
-            if (count == 0) {
-                return null;
+            HostKey[] foo = new HostKey[v.size()];
+            for (int i = 0; i < v.size(); i++) {
+                foo[i] = (HostKey) v.get(i);
             }
-            HostKey[] foo = new HostKey[count];
-            int j = 0;
-            for (int i = 0; i < pool.size(); i++) {
-                HostKey hk = (HostKey) pool.elementAt(i);
-                if (hk.type == HostKey.UNKNOWN) {
-                    continue;
-                }
-                if (host == null
-                        || (hk.isMatched(host)
-                        && (type == null || hk.getType().equals(type)))) {
-                    foo[j++] = hk;
+            if (host != null && host.startsWith("[") && host.indexOf("]:") > 1) {
+                HostKey[] tmp
+                        = getHostKey(host.substring(1, host.indexOf("]:")), type);
+                if (tmp.length > 0) {
+                    HostKey[] bar = new HostKey[foo.length + tmp.length];
+                    System.arraycopy(foo, 0, bar, 0, foo.length);
+                    System.arraycopy(tmp, 0, bar, foo.length, tmp.length);
+                    foo = bar;
                 }
             }
             return foo;
@@ -364,7 +450,7 @@ public class KnownHosts implements ssh.HostKeyRepository {
         if (foo == null) {
             return;
         }
-        FileOutputStream fos = new FileOutputStream(foo);
+        FileOutputStream fos = new FileOutputStream(proxy.Tools.checkTilde(foo));
         dump(fos);
         fos.close();
     }
@@ -379,34 +465,34 @@ public class KnownHosts implements ssh.HostKeyRepository {
                 for (int i = 0; i < pool.size(); i++) {
                     hk = (HostKey) (pool.elementAt(i));
                     //hk.dump(out);
+                    String marker = hk.getMarker();
                     String host = hk.getHost();
                     String type = hk.getType();
+                    String comment = hk.getComment();
                     if (type.equals("UNKNOWN")) {
                         out.write(proxy.Tools.str2byte(host));
                         out.write(cr);
                         continue;
+                    }
+                    if (marker.length() != 0) {
+                        out.write(proxy.Tools.str2byte(marker));
+                        out.write(space);
                     }
                     out.write(proxy.Tools.str2byte(host));
                     out.write(space);
                     out.write(proxy.Tools.str2byte(type));
                     out.write(space);
                     out.write(proxy.Tools.str2byte(hk.getKey()));
+                    if (comment != null) {
+                        out.write(space);
+                        out.write(proxy.Tools.str2byte(comment));
+                    }
                     out.write(cr);
                 }
             }
         } catch (Exception e) {
             System.err.println(e);
         }
-    }
-
-    private int getType(byte[] key) {
-        if (key[8] == 'd') {
-            return HostKey.SSHDSS;
-        }
-        if (key[8] == 'r') {
-            return HostKey.SSHRSA;
-        }
-        return HostKey.UNKNOWN;
     }
 
     private String deleteSubString(String hosts, String host) {
@@ -463,7 +549,11 @@ public class KnownHosts implements ssh.HostKeyRepository {
         }
 
         HashedHostKey(String host, int type, byte[] key) throws ProxyException {
-            super(host, type, key);
+            this("", host, type, key, null);
+        }
+
+        HashedHostKey(String marker, String host, int type, byte[] key, String comment) throws ProxyException {
+            super(marker, host, type, key, comment);
             if (this.host.startsWith(HASH_MAGIC)
                     && this.host.substring(HASH_MAGIC.length()).indexOf(HASH_DELIM) > 0) {
                 String data = this.host.substring(HASH_MAGIC.length());
@@ -511,10 +601,10 @@ public class KnownHosts implements ssh.HostKeyRepository {
             }
             MAC macsha1 = getHMACSHA1();
             if (salt == null) {
-                Cookie cookie = SessionSSH.cookie;
-                synchronized (cookie) {
+                Cookie random = SessionSSH.cookie;
+                synchronized (random) {
                     salt = new byte[macsha1.getBlockSize()];
-                    cookie.fill(salt, 0, salt.length);
+                    random.fill(salt, 0, salt.length);
                 }
             }
             try {

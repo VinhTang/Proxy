@@ -5,6 +5,9 @@ package proxy;
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Properties;
@@ -193,7 +196,21 @@ public class Tools {
 
 //    return sun.misc.BASE64Encoder().encode(buf);
     }
+
     //-------------------
+
+    public static String toHex(byte[] str) {
+        StringBuffer sb = new StringBuffer();
+        for (int i = 0; i < str.length; i++) {
+            String foo = Integer.toHexString(str[i] & 0xff);
+            sb.append("0x" + (foo.length() == 1 ? "0" : "") + foo);
+            if (i + 1 < str.length) {
+                sb.append(":");
+            }
+        }
+        return sb.toString();
+    }
+////////////////////////////////////////////////////////////////////////////////
 
     public static boolean array_equals(byte[] foo, byte bar[]) {
         int i = foo.length;
@@ -321,12 +338,47 @@ public class Tools {
         }
     }
 ////////////////////////////////////////////////////////////////////////////////
+
     public static void bzero(byte[] foo) {
         if (foo == null) {
             return;
         }
         for (int i = 0; i < foo.length; i++) {
             foo[i] = 0;
+        }
+    }
+////////////////////////////////////////////////////////////////////////////////
+
+    public static String checkTilde(String str) {
+        try {
+            if (str.startsWith("~")) {
+                str = str.replace("~", System.getProperty("user.home"));
+            }
+        } catch (SecurityException e) {
+        }
+        return str;
+    }
+
+    public static byte[] fromFile(String _file) throws IOException {
+        _file = checkTilde(_file);
+        File file = new File(_file);
+        FileInputStream fis = new FileInputStream(_file);
+        try {
+            byte[] result = new byte[(int) (file.length())];
+            int len = 0;
+            while (true) {
+                int i = fis.read(result, len, result.length - len);
+                if (i <= 0) {
+                    break;
+                }
+                len += i;
+            }
+            fis.close();
+            return result;
+        } finally {
+            if (fis != null) {
+                fis.close();
+            }
         }
     }
 ////////////////////////////////////////////////////////////////////////////////

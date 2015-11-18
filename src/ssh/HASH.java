@@ -5,8 +5,6 @@ package ssh;
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
-
 public interface HASH {
 
     void init() throws Exception;

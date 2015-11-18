@@ -17,7 +17,7 @@ import proxy.Tools;
  */
 public class SessionSSH {
 
-    static private final String version = "SSH Proxy";
+    static private final String version = "OpenSSH_5.3";
     ////////////////////////////////////////////////////////////////////////////
     public Proxy Parent;
     protected Object bucket;
@@ -75,10 +75,11 @@ public class SessionSSH {
     Buffer buf;
     Packet packet;
     static Cookie cookie;   // cookie
-    private Configure configure;
+
     String[] guess = null;
 
-    private KeyPair keypair;
+    public String keypairtype;
+    public String KEX_ALGS;
     private Cipher s2ccipher;
     private Cipher c2scipher;
     private MAC s2cmac;
@@ -110,6 +111,10 @@ public class SessionSSH {
     protected boolean daemon_thread = false;
 
     private long kex_start_time = 0L;
+
+    static final int buffer_margin = 32 + // maximum padding length
+            20 + // maximum mac length
+            32;  // margin for deflater; deflater may inflate data
 
     //----------------------------------------------
     public int getTimeout() {
@@ -159,38 +164,68 @@ public class SessionSSH {
         System.arraycopy(V_Proxy, 0, foo, 0, V_Proxy.length);
         foo[foo.length - 1] = (byte) '\n';
         Parent.SendToClient(foo);
-
 //------------------------------------------------------------------------------        
 //                              receive Client Vesion
 //------------------------------------------------------------------------------        
-        int len = 0;
+        int i = 0, j = 0;
 
-        while (len < buf.buffer.length) {
-            len++;
-            buf.buffer[len] = GetByte();
-            if (buf.buffer[len] == 10) {
-                break;
+        while (true) {
+            i = 0;
+            j = 0;
+            while (i < buf.buffer.length) {
+                j = GetByte();
+                if (j < 0) {
+                    break;
+                }
+                buf.buffer[i] = (byte) j;
+                i++;
+                if (j == 10) {
+                    break;
+                }
             }
-        }
-        if (len < 7 || (buf.buffer[4] == '1' && buf.buffer[6] != '9'))// SSH-1.5 // SSH-1.99 or SSH-2.0 (7)
-        {
-            Logs.Println(proxy.Logger.INFO, "Proxy only support SSH 2.0!");
-            Parent.Close();
+            if (j < 0) {
+                throw new ProxyException("connection is closed by foreign host");
+            }
+
+            if (buf.buffer[i - 1] == 10) {    // 0x0a
+                i--;
+                if (i > 0 && buf.buffer[i - 1] == 13) {  // 0x0d
+                    i--;
+                }
+            }
+
+            if (i <= 3
+                    || ((i != buf.buffer.length)
+                    && (buf.buffer[0] != 'S' || buf.buffer[1] != 'S'
+                    || buf.buffer[2] != 'H' || buf.buffer[3] != '-'))) {
+          // It must not start with 'SSH-'
+                //System.err.println(new String(buf.buffer, 0, i);
+                continue;
+            }
+
+            if (i == buf.buffer.length
+                    || i < 7 || // SSH-1.99 or SSH-2.0
+                    (buf.buffer[4] == '1' && buf.buffer[6] != '9') // SSH-1.5
+                    ) {
+                throw new ProxyException("invalid server's version string");
+            }
+            break;
         }
 
-        V_Client = new byte[len];
-        for (int i = 1; i < len; i++) {
-            V_Client[i] = buf.buffer[i];
-        }
+        V_Client = new byte[i];
+        System.arraycopy(buf.buffer, 0, V_Client, 0, i);
 
         Logs.Println(proxy.Logger.INFO,
                 "\n-------------------Start SSH Trans-------------------\n"
                 + "-----------------------------------------------------\n"
         );
-        Logs.Println(proxy.Logger.INFO, "Version Client: " + Tools.byte2str(V_Client));
-        Logs.Println(proxy.Logger.INFO, "Version Proxy : " + Tools.byte2str(V_Proxy));
+        Logs.Println(proxy.Logger.INFO,
+                "Version Client: " + Tools.byte2str(V_Client));
+        Logs.Println(proxy.Logger.INFO,
+                "Version Proxy : " + Tools.byte2str(V_Proxy));
 
-        if (cookie == null) {
+        if (cookie
+                == null) {
             try {
                 getConfig("random");
                 Class c = Class.forName(getConfig("random"));
@@ -204,10 +239,14 @@ public class SessionSSH {
 //------------------------------------------------------------------------------
 
         buf = read(buf);
-        if (buf.getCommand() != SSH_MSG_KEXINIT) {
+
+        if (buf.getCommand()
+                != SSH_MSG_KEXINIT) {
             in_kex = false;
         }
-        Logs.Println(proxy.Logger.INFO, "SSH_MSG_KEXINIT received");
+
+        Logs.Println(proxy.Logger.INFO,
+                "SSH_MSG_KEXINIT received");
         receive_kexinit(buf);
 
 //------------------------------------------------------------------------------     
@@ -218,62 +257,38 @@ public class SessionSSH {
 //                              receive DH Key exchange 
 //------------------------------------------------------------------------------
         KeyExchange kex = null;
+
         try {
-            Class c = Class.forName(getConfig(guess[KeyExchange.PROPOSAL_KEX_ALGS]));
+            KEX_ALGS = guess[KeyExchange.PROPOSAL_KEX_ALGS];
+            Class c = Class.forName(getConfig(KEX_ALGS));
             kex = (KeyExchange) (c.newInstance());
         } catch (Exception e) {
             throw new ProxyException(e.toString(), e);
         }
-
-        keypair = KeyPair.genKeyPair(configure, 2);
-        System.err.println(keypair.getFingerPrint());
-        keypair.setPassphrase("");
-        byte[] prv = new byte[keypair.getKeySize()];
-        prv = keypair.getPrivateKey();
-
-        byte[] pub = new byte[keypair.getKeySize()];
-        pub = keypair.getPublicKeyBlob();
-
-        for (int i = 0; i < keypair.getKeySize(); i++) {
-            System.err.print(prv[i]);
-        }
-        keypair.writePrivateKey("C:\\Users\\Milky_Way\\Desktop\\test");
-        keypair.writePublicKey("C:\\Users\\Milky_Way\\Desktop\\test.pub","" );
         //----------------------
-        buf = read(buf);
-        int commmand = buf.getCommand();
-        switch (commmand) {
-
-            case SSH_MSG_KEXDH_INIT:
-                byte[] e = buf.getMPInt();
-                break;
-            case SSH_MSG_KEX_DH_GEX_REQUEST:
-                Logs.Println(proxy.Logger.ERROR, "SSH_MSG_KEX_DH_GEX_REQUEST: " + SSH_MSG_KEX_DH_GEX_REQUEST);
-                break;
-        }
 
         kex.init(this, V_Proxy, V_Client, I_S, I_C);
 //------------------------------------------------------------------------------        
 //                              reply DH Key exchange 
 //------------------------------------------------------------------------------           
 
-        if (kex.getState() == buf.getCommand()) {
-            kex_start_time = System.currentTimeMillis();
-            boolean result = kex.next(buf);
-
-            if (!result) {
-                //System.err.println("verify: "+result);
-                in_kex = false;
-                throw new ProxyException("verify: " + result);
-            }
-        } else {
-            in_kex = false;
-            throw new ProxyException("invalid protocol(kex): " + buf.getCommand());
-        }
+//
+//        if (kex.getState() == buf.getCommand()) {
+//            kex_start_time = System.currentTimeMillis();
+//            boolean result = kex.next(buf);
+//
+//            if (!result) {
+//                //System.err.println("verify: "+result);
+//                in_kex = false;
+//                throw new ProxyException("verify: " + result);
+//            }
+//        } else {
+//            in_kex = false;
+//            throw new ProxyException("invalid protocol(kex): " + buf.getCommand());
+//        }
 //        if (kex.getState() == KeyExchange.STATE_END) {
 //            break;
 //        }
-
     }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -282,6 +297,7 @@ public class SessionSSH {
     private boolean in_kex = false; // if Proxy have a key this Client in_kex = true
 
     private void receive_kexinit(Buffer buf) throws Exception {
+
         int j = buf.getInt();
         if (j != buf.getLength()) {    // packet was compressed and
             buf.getByte();           // j is the size of deflated packet.
@@ -296,7 +312,6 @@ public class SessionSSH {
         }
 
         guess = KeyExchange.guess(I_S, I_C);
-
         if (guess == null) {
             throw new ProxyException("Algorithm negotiation fail");
         }
@@ -497,6 +512,8 @@ public class SessionSSH {
             //System.err.println("updatekeys: "+e); 
         }
     }
+//-----------------------------------------
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -553,14 +570,14 @@ public class SessionSSH {
 //------------------------------------------------------------------------------
 
     public void write(Packet packet) throws Exception {
-        // System.err.println("in_kex="+in_kex+" "+(packet.buffer.getCommand()));
+
         long t = getTimeout();
         while (in_kex) {
             if (t > 0L && (System.currentTimeMillis() - kex_start_time) > t) {
                 Logs.Println(proxy.Logger.DEBUG, "timeout in wating for rekeying process.");
             }
             byte command = packet.buffer.getCommand();
-            //System.err.println("command: "+command);
+
             if (command == SSH_MSG_KEXINIT
                     || command == SSH_MSG_NEWKEYS
                     || command == SSH_MSG_KEXDH_INIT
@@ -583,7 +600,6 @@ public class SessionSSH {
     //-----------------------------------------------------
     private void _write(Packet packet) throws Exception {
         synchronized (bucket) {
-
             encode(packet);
             if (Parent.ClientOutput != null) {
                 put(packet);
