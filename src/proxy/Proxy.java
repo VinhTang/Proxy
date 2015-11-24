@@ -12,7 +12,6 @@ import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketException;
-import static proxy.Logs.ClientLog;
 
 /**
  *
@@ -43,18 +42,16 @@ public class Proxy extends Thread {
     //---------------------------
     public static final int DEFAULT_BUF_SIZE = 4096;
 
-    public Socket ClientSocket = null;
-    public Socket ServerSocket = null;
+    public static Socket ClientSocket = null;
+    public static Socket ServerSocket = null;
 
     public int Bufflen = DEFAULT_BUF_SIZE;
-    public byte[] Buffer = null;
-
     public InputStream ClientInput = null;
     public OutputStream ClientOutput = null;
     public InputStream ServerInput = null;
     public OutputStream ServerOutput = null;
 
-    public static final int DEFAULT_TIMEOUT = 10;
+    public static final int DEFAULT_TIMEOUT = 3*60*1000;
 
     public final boolean Have_Authentication = false; //SOCKs 5 Authentication Method
     ////////////////////////////////////////////////////////////////////////////
@@ -80,8 +77,6 @@ public class Proxy extends Thread {
             }
         }
 
-        Buffer = new byte[Bufflen];
-        
         Logs.Println(Logger.INFO, "Proxy Created!");
     }
 
@@ -170,6 +165,7 @@ public class Proxy extends Thread {
         while (ClientSocket != null) {
             try {
                 data = ClientInput.read();
+                System.err.println(" data: "+ data);
             } catch (InterruptedIOException ex) {
                 Thread.yield();
                 continue;

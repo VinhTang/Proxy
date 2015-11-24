@@ -71,14 +71,9 @@ public abstract class KeyExchange {
         Buffer cb = new Buffer(I_C);
         cb.setOffSet(17);
 
-        for (int i = 0; i < PROPOSAL_MAX; i++) {
-            proxy.Logs.Println(proxy.Logger.INFO,
-                    "kex: server: " + proxy.Tools.byte2str(sb.getString()));
-        }
-        for (int i = 0; i < PROPOSAL_MAX; i++) {
-            proxy.Logs.Println(proxy.Logger.INFO,
-                    "kex: client: " + proxy.Tools.byte2str(cb.getString()));
-        }
+        proxy.Logs.Println(proxy.Logger.INFO, "kex: server: " + proxy.Tools.byte2str(sb.getString()));
+        proxy.Logs.Println(proxy.Logger.INFO, "kex: client: " + proxy.Tools.byte2str(cb.getString()));
+
         sb.setOffSet(17);
         cb.setOffSet(17);
 
@@ -122,7 +117,7 @@ public abstract class KeyExchange {
                 return null;
             }
         }
-
+        
         proxy.Logs.Println(proxy.Logger.INFO,
                 "kex: server->client"
                 + " " + guess[PROPOSAL_ENC_ALGS_STOC]
@@ -201,7 +196,6 @@ public abstract class KeyExchange {
             System.arraycopy(K_S, i, tmp, 0, j);
             i += j;
             ee = tmp;
-
             j = ((K_S[i++] << 24) & 0xff000000) | ((K_S[i++] << 16) & 0x00ff0000)
                     | ((K_S[i++] << 8) & 0x0000ff00) | ((K_S[i++]) & 0x000000ff);
             tmp = new byte[j];

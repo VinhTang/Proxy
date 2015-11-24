@@ -71,6 +71,7 @@ public class KeyPairRSA extends KeyPair {
     }
 
     byte[] getPrivateKey() {
+
         int content
                 = 1 + countLength(1) + 1 + // INTEGER
                 1 + countLength(n_array.length) + n_array.length + // INTEGER  N
@@ -316,7 +317,7 @@ public class KeyPairRSA extends KeyPair {
 //        tmp[1] = pub_array; System.err.println("EE:"+pub_array.toString());
 //        tmp[2] = n_array;System.out.println("N : "+ n_array.toString());
 //        return Buffer.fromBytes(tmp).buffer;  
-       
+
         Buffer buf = new Buffer();
         buf.putString(sshrsa);
         buf.putMPInt(pub_array);

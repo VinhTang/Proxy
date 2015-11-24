@@ -20,6 +20,8 @@ import ssh.HASH;
 public class Tools {
 ////////////////////////////////////////////////////////////////////////////////
 
+    public static final byte[] empty = str2byte("");
+
     public static boolean CheckBoolean(String temp, boolean Default) {
         temp = temp.toUpperCase();
         System.out.println("temp: " + temp);
@@ -198,7 +200,6 @@ public class Tools {
     }
 
     //-------------------
-
     public static String toHex(byte[] str) {
         StringBuffer sb = new StringBuffer();
         for (int i = 0; i < str.length; i++) {

@@ -6,6 +6,11 @@ package ssh;
  * and open the template in the editor.
  */
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+
+import java.net.Socket;
+import java.util.Random;
 
 import proxy.Logs;
 import proxy.Proxy;
@@ -15,12 +20,11 @@ import proxy.Tools;
  *
  * @author Milky_Way
  */
-public class SessionSSH {
+public class SessionSSH implements Runnable {
 
     static private final String version = "OpenSSH_5.3";
     ////////////////////////////////////////////////////////////////////////////
     public Proxy Parent;
-    protected Object bucket;
 
     static final int SSH_MSG_DISCONNECT = 1;
     static final int SSH_MSG_IGNORE = 2;
@@ -78,29 +82,28 @@ public class SessionSSH {
 
     String[] guess = null;
 
-    public String keypairtype;
     public String KEX_ALGS;
     private Cipher s2ccipher;
     private Cipher c2scipher;
+
     private MAC s2cmac;
     private MAC c2smac;
+
     private Compression deflater;
     private Compression inflater;
+
     //private byte[] mac_buf;
-    private byte[] s2cmac_result1;
-    private byte[] s2cmac_result2;
+    private byte[] c2smac_result1;
+    private byte[] c2smac_result2;
 
     private int timeout = 0;
 
-    private boolean isConnected = false;
+    private volatile boolean isConnected = false;
 
     private boolean isAuthed = false;
 
     private Thread connectThread = null;
     private Object lock = new Object();
-
-    boolean x11_forwarding = false;
-    boolean agent_forwarding = false;
 
     private java.util.Hashtable config = null;
 
@@ -112,6 +115,29 @@ public class SessionSSH {
 
     private long kex_start_time = 0L;
 
+    int max_auth_tries = 6;
+    int auth_failures = 0;
+
+    IO io = null;
+    Socket Sock;
+    InputStream in;
+    OutputStream out;
+//    String usernameProxy = null;
+//    byte[] passwordProxy = null;
+///////////////////////////////////////////////////////
+// --- method authen choose
+    String methodname = null;
+// --- authen: password
+    String username = null;
+    byte[] password = null;
+    // String Susername = null;
+    byte[] Spassword = null;
+// --- authen: publickey
+    byte[] algs_auth = null;
+    byte[] publicblob_auth = null;
+    // ---
+    static boolean firstcheck = true;
+///////////////////////////////////////////////////////
     static final int buffer_margin = 32 + // maximum padding length
             20 + // maximum mac length
             32;  // margin for deflater; deflater may inflate data
@@ -127,19 +153,33 @@ public class SessionSSH {
 ////////////////////////////////////////////////////////////////////////////////
 
     public SessionSSH(Proxy proxy) {
-        bucket = this;
+        this.lock = this;
         Parent = proxy;
         buf = new Buffer();
         packet = new Packet(buf);
-
-        buf.putInt(this.lwsize);
-        buf.putInt(this.lmpsize);
-
+        io = new IO();
     }
 //------------------------------------------------------------------------------
 
-    public void Connect() throws Exception {
+    private void setStream() {
+        synchronized (lock) {
+            try {
+                in = Parent.ClientInput;
+                io.setInputStream(in);
+                out = Parent.ClientOutput;
+                io.setOutputStream(out);
+            } catch (Exception e) {
+                System.err.println(e.toString());
+            }
+        }
+    }
 
+    public boolean isConnected() {
+        return isConnected;
+    }
+
+    public void Connect() throws Exception {
+        setStream();
 //      RFC 4253          SSH Transport Layer Protocol
 //      ----------------------------------------------------
 //      byte         SSH_MSG_KEXINIT   (21)
@@ -157,145 +197,588 @@ public class SessionSSH {
 //      boolean      first_kex_packet_follows
 //      uint32       0 (reserved for future extension)
 //      ----------------------------------------------------  
+        if (isConnected) {
+            throw new ProxyException("session is already connected");
+        }
+        try {
+
 //------------------------------------------------------------------------------        
 //                              send Server Vesion
 //------------------------------------------------------------------------------
-        byte[] foo = new byte[V_Proxy.length + 1];
-        System.arraycopy(V_Proxy, 0, foo, 0, V_Proxy.length);
-        foo[foo.length - 1] = (byte) '\n';
-        Parent.SendToClient(foo);
+            buf.reset();
+            byte[] foo = new byte[V_Proxy.length + 1];
+            System.arraycopy(V_Proxy, 0, foo, 0, V_Proxy.length);
+            foo[foo.length - 1] = (byte) '\n';
+            io.put(foo, 0, foo.length);
+
 //------------------------------------------------------------------------------        
 //                              receive Client Vesion
 //------------------------------------------------------------------------------        
-        int i = 0, j = 0;
+            int i = 0, j = 0;
 
-        while (true) {
-            i = 0;
-            j = 0;
-            while (i < buf.buffer.length) {
-                j = GetByte();
+            while (true) {
+                i = 0;
+                j = 0;
+                while (i < buf.buffer.length) {
+
+                    j = io.getByte();
+
+                    if (j < 0) {
+                        break;
+                    }
+                    buf.buffer[i] = (byte) j;
+                    i++;
+                    if (j == 10) {
+                        break;
+                    }
+                }
                 if (j < 0) {
-                    break;
+                    throw new ProxyException("connection is closed by foreign host");
                 }
-                buf.buffer[i] = (byte) j;
-                i++;
-                if (j == 10) {
-                    break;
-                }
-            }
-            if (j < 0) {
-                throw new ProxyException("connection is closed by foreign host");
-            }
 
-            if (buf.buffer[i - 1] == 10) {    // 0x0a
-                i--;
-                if (i > 0 && buf.buffer[i - 1] == 13) {  // 0x0d
+                if (buf.buffer[i - 1] == 10) {    // 0x0a
                     i--;
+                    if (i > 0 && buf.buffer[i - 1] == 13) {  // 0x0d
+                        i--;
+                    }
+                }
+
+                if (i <= 3
+                        || ((i != buf.buffer.length)
+                        && (buf.buffer[0] != 'S' || buf.buffer[1] != 'S'
+                        || buf.buffer[2] != 'H' || buf.buffer[3] != '-'))) {
+                    // It must not start with 'SSH-'
+                    //System.err.println(new String(buf.buffer, 0, i);
+                    continue;
+                }
+
+                if (i == buf.buffer.length
+                        || i < 7 || // SSH-1.99 or SSH-2.0
+                        (buf.buffer[4] == '1' && buf.buffer[6] != '9') // SSH-1.5
+                        ) {
+                    throw new ProxyException("invalid server's version string");
+                }
+                break;
+            }
+
+            V_Client = new byte[i];
+            System.arraycopy(buf.buffer, 0, V_Client, 0, i);
+            isConnected = true;
+            Logs.Println(proxy.Logger.INFO,
+                    "\n-------------------Start SSH Trans-------------------\n"
+                    + "-----------------------------------------------------\n"
+            );
+            Logs.Println(proxy.Logger.INFO, "Version Client: " + Tools.byte2str(V_Client));
+            Logs.Println(proxy.Logger.INFO, "Version Proxy : " + Tools.byte2str(V_Proxy));
+
+            if (cookie == null) {
+                try {
+                    getConfig("random");
+                    Class c = Class.forName(getConfig("random"));
+                    cookie = (Cookie) (c.newInstance());
+                } catch (Exception e) {
+                    Logs.Println(proxy.Logger.ERROR, e.toString());
                 }
             }
-
-            if (i <= 3
-                    || ((i != buf.buffer.length)
-                    && (buf.buffer[0] != 'S' || buf.buffer[1] != 'S'
-                    || buf.buffer[2] != 'H' || buf.buffer[3] != '-'))) {
-          // It must not start with 'SSH-'
-                //System.err.println(new String(buf.buffer, 0, i);
-                continue;
-            }
-
-            if (i == buf.buffer.length
-                    || i < 7 || // SSH-1.99 or SSH-2.0
-                    (buf.buffer[4] == '1' && buf.buffer[6] != '9') // SSH-1.5
-                    ) {
-                throw new ProxyException("invalid server's version string");
-            }
-            break;
-        }
-
-        V_Client = new byte[i];
-        System.arraycopy(buf.buffer, 0, V_Client, 0, i);
-
-        Logs.Println(proxy.Logger.INFO,
-                "\n-------------------Start SSH Trans-------------------\n"
-                + "-----------------------------------------------------\n"
-        );
-        Logs.Println(proxy.Logger.INFO,
-                "Version Client: " + Tools.byte2str(V_Client));
-        Logs.Println(proxy.Logger.INFO,
-                "Version Proxy : " + Tools.byte2str(V_Proxy));
-
-        if (cookie
-                == null) {
-            try {
-                getConfig("random");
-                Class c = Class.forName(getConfig("random"));
-                cookie = (Cookie) (c.newInstance());
-            } catch (Exception e) {
-                Logs.Println(proxy.Logger.ERROR, e.toString());
-            }
-        }
 //------------------------------------------------------------------------------        
 //                              receive Key Exchange Intial (20)
 //------------------------------------------------------------------------------
 
-        buf = read(buf);
+            buf = read(buf);
 
-        if (buf.getCommand()
-                != SSH_MSG_KEXINIT) {
-            in_kex = false;
-        }
+            if (buf.getCommand() != SSH_MSG_KEXINIT) {
+                in_kex = false;
+            }
 
-        Logs.Println(proxy.Logger.INFO,
-                "SSH_MSG_KEXINIT received");
-        receive_kexinit(buf);
+            Logs.Println(proxy.Logger.INFO, "SSH_MSG_KEXINIT received");
+            receive_kexinit(buf);
 
 //------------------------------------------------------------------------------     
 //                              send Key Exchange Intial (20)
 //------------------------------------------------------------------------------        
-        send_kexinit();
+            send_kexinit();
 //------------------------------------------------------------------------------        
-//                              receive DH Key exchange 
+//                              DH Key exchange 
 //------------------------------------------------------------------------------
-        KeyExchange kex = null;
+            KeyExchange kex = null;
 
-        try {
-            KEX_ALGS = guess[KeyExchange.PROPOSAL_KEX_ALGS];
-            Class c = Class.forName(getConfig(KEX_ALGS));
-            kex = (KeyExchange) (c.newInstance());
-        } catch (Exception e) {
-            throw new ProxyException(e.toString(), e);
-        }
-        //----------------------
+            try {
+                KEX_ALGS = guess[KeyExchange.PROPOSAL_KEX_ALGS];
+                Class c = Class.forName(getConfig(KEX_ALGS));
+                kex = (KeyExchange) (c.newInstance());
+            } catch (Exception e) {
+                throw new ProxyException(e.toString(), e);
+            }
+            //----------------------
 
-        kex.init(this, V_Proxy, V_Client, I_S, I_C);
+            kex.init(this, V_Proxy, V_Client, I_S, I_C);
 //------------------------------------------------------------------------------        
-//                              reply DH Key exchange 
+//                              receive SSH_MSG_NEWKEYS (21)
 //------------------------------------------------------------------------------           
 
-//
-//        if (kex.getState() == buf.getCommand()) {
-//            kex_start_time = System.currentTimeMillis();
-//            boolean result = kex.next(buf);
-//
-//            if (!result) {
-//                //System.err.println("verify: "+result);
-//                in_kex = false;
-//                throw new ProxyException("verify: " + result);
+            // receive SSH_MSG_NEWKEYS(21)
+            buf.reset();
+            buf = read(buf);
+            if (buf.getCommand() == SSH_MSG_NEWKEYS) {
+                Logs.Println(proxy.Logger.INFO, "SSH_MSG_NEWKEYS received");
+                in_kex = false;
+                send_newkeys();
+
+                updateKeys(kex);
+
+            } else {
+                proxy.Logs.Println(proxy.Logger.INFO, "invalid signal. Connect Resfuse.");
+                disconnectpacket("Invalid signal. Connect Resfuse");
+                disconnect();
+                Parent.Close();
+            }
+//------------------------------------------------------------------------------        
+//                              Authentication
+//------------------------------------------------------------------------------     
+            try {
+                String s = getConfig("MaxAuthTries");
+                if (s != null) {
+                    max_auth_tries = Integer.parseInt(s);
+                }
+            } catch (NumberFormatException e) {
+                throw new ProxyException("MaxAuthTries: " + getConfig("MaxAuthTries"), e);
+            }
+
+            boolean auth = false;
+            boolean auth_cancel = false;
+
+            UserAuth ua = null;
+            try {
+                Class c = Class.forName(getConfig("userauth.none"));
+                ua = (UserAuth) (c.newInstance());
+            } catch (Exception e) {
+                throw new ProxyException(e.toString(), e);
+            }
+            auth = ua.start(this);
+
+            String smethods = null;
+            if (auth == true) {
+                smethods = ((UserAuthNone) ua).getMethods();
+
+            } else {
+                disconnectpacket("");
+                disconnect();
+            }
+
+            int methodi = 0;
+            String[] smethoda = Tools.split(smethods, ",");
+
+            //-----------
+            buf.reset();
+            buf = read(buf);
+
+            if (buf.getCommand() == UserAuth.SSH_MSG_USERAUTH_REQUEST) {
+                buf.getInt();
+                buf.getByte();
+                buf.getByte();
+                username = Tools.byte2str(buf.getString());
+                byte[] servicename = buf.getString();
+                methodname = Tools.byte2str(buf.getString());
+            } else {
+                Logs.Println(proxy.Logger.INFO, "Unexpect statement! " + buf.getByte());
+                disconnectpacket("Unexpect statement! " + buf.getByte());
+                disconnect();
+            }
+            if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
+                String str = "User choose authentication methods: " + methodname;
+                Logs.Println(proxy.Logger.INFO, str);
+            }
+
+            for (i = 0; i < smethoda.length; i++) {
+                if (smethoda[i].equals(methodname) == true) {
+                    if (methodname.equals("password")) {
+                        int bool = buf.getByte();
+                        password = buf.getString();
+                    } else if (methodname.equals("publickey")) {
+                        int bool = buf.getByte();
+                        algs_auth = buf.getString();
+                        publicblob_auth = buf.getString();
+                    }
+                }
+            }
+            //--------------------
+            ua = null;
+            try {
+                Class c = null;
+                if (getConfig("userauth." + methodname) != null) {
+                    c = Class.forName(getConfig("userauth." + methodname));
+                    ua = (UserAuth) (c.newInstance());
+                }
+            } catch (Exception e) {
+                if (Logs.getLogger().isEnabled(proxy.Logger.WARN)) {
+                    Logs.Println(proxy.Logger.WARN, "failed to load " + methodname + " method");
+                    disconnectpacket("");
+                    disconnect();
+                }
+            }
+
+            //--------------test H password proxy-------------------------------
+            HASH sha = null;
+            try {
+                Class c = Class.forName(getConfig("sha-1"));
+                sha = (HASH) (c.newInstance());
+                sha.init();
+            } catch (Exception ee) {
+                proxy.Logs.Println(proxy.Logger.ERROR, ee.toString());
+            }
+            Spassword = Tools.str2byte("321");
+            sha.update(Spassword, 0, Spassword.length);
+            Spassword = sha.digest();
+//            StringBuffer sb = new StringBuffer();
+//            for (byte e : password) {
+//                sb.append(Integer.toHexString((int) (e & 0xff)));
 //            }
-//        } else {
-//            in_kex = false;
-//            throw new ProxyException("invalid protocol(kex): " + buf.getCommand());
-//        }
-//        if (kex.getState() == KeyExchange.STATE_END) {
-//            break;
-//        }
+//            System.err.println(sb.toString());
+            //------------------------------------------------------------------
+            auth = false;
+            auth_cancel = false;
+
+            while (auth_cancel == false) {
+                if (ua != null) {
+                    try {
+                        auth = ua.start(this);
+                        if (auth == true && Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
+                            Logs.Println(proxy.Logger.INFO, "Authentication succeeded (" + methodname + ").");
+                            isAuthed = true;
+                            auth_cancel = true;
+
+                        } else {
+                            auth_failures++;
+                            System.err.println(auth_failures);
+                            System.err.println(max_auth_tries);
+                            if (auth_failures == max_auth_tries) {
+                                Logs.Println(proxy.Logger.INFO, "Client fail authentication: fail !");
+                                auth_cancel = true;
+                                disconnect();
+                            }
+                        }
+
+                    } catch (Exception ee) {
+                        //System.err.println("ee: "+ee); // SSH_MSG_DISCONNECT: 2 Too many authentication failures
+                        if (Logs.getLogger().isEnabled(proxy.Logger.WARN)) {
+                            Logs.Println(proxy.Logger.WARN, "an exception during authentication\n" + ee.toString());
+                        }
+                        isConnected = false;
+                        disconnect();
+                    }
+                    //------------
+                }
+
+            }
+            firstcheck = true;
+            synchronized (lock) {
+                if (isConnected) {
+                    connectThread = new Thread(this);
+                    connectThread.setName("Connect thread "/* + host + " session"*/);
+                    if (daemon_thread) {
+                        connectThread.setDaemon(daemon_thread);
+                    }
+                    connectThread.start();
+                } else {
+                    // The session has been already down and
+                    // we don't have to start new thread.
+                }
+            }
+        } catch (Exception e) {
+            in_kex = false;
+            try {
+                if (isConnected) {
+                    disconnectpacket(e.toString());
+                }
+            } catch (Exception ee) {
+            }
+            try {
+                disconnect();
+            } catch (Exception ee) {
+            }
+            isConnected = false;
+            //e.printStackTrace();
+            if (e instanceof RuntimeException) {
+                throw (RuntimeException) e;
+            }
+            if (e instanceof ProxyException) {
+                throw (ProxyException) e;
+            }
+            throw new ProxyException("Session.connect: " + e);
+        } finally {
+//            Tools.bzero(this.password);
+//            this.password = null;
+        }
+    }
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+    Runnable thread;
+
+    public void run() {
+        thread = this;
+
+        byte[] foo;
+        Buffer buf = new Buffer();
+        Packet packet = new Packet(buf);
+        int i = 0;
+        Channel channel;
+        int senderchannel  = new Random().nextInt((1024 - 100) + 1) + 100;;
+        int recipientchannel = 0 ;
+        int[] start = new int[1];
+        int[] length = new int[1];
+        int msgType = 0;
+
+        String ctyp = null;
+        int w_size = 0;
+        int max_packetsize = 0;
+        msgType = SSH_MSG_CHANNEL_OPEN;
+        firstcheck = false;
+        try {
+            //------------------------------------------------------------------
+            //------------------------------------------------------------------
+            while (isConnected && thread != null) {
+                if (firstcheck == true) {
+                    msgType = SSH_MSG_CHANNEL_OPEN_CONFIRMATION;
+                    firstcheck = false;
+                } else {
+                    buf = read(buf);
+                    msgType = buf.getCommand() & 0xff;
+                }
+
+                switch (msgType) {
+                    case SSH_MSG_CHANNEL_OPEN:
+                        buf.reset();
+                        buf = read(buf);
+                        msgType = buf.getCommand();
+                        System.err.println(msgType);
+                        if (msgType != SSH_MSG_CHANNEL_OPEN) {
+                            Logs.Println(proxy.Logger.INFO, "Error Command !");
+                            disconnectpacket("Error Command");
+                            disconnect();
+                        }
+                        buf.getInt();
+                        buf.getByte();
+                        buf.getByte();
+                        ctyp = Tools.byte2str(buf.getString());
+                        senderchannel = buf.getInt();
+                        w_size = buf.getInt();
+                        max_packetsize = buf.getInt();
+                        System.err.println("senderchannel: " + senderchannel);
+                        System.err.println("w_size: " + w_size + "- packetmax size: " + max_packetsize);
+                        try {
+                            channel = Channel.getChannel(ctyp);
+                            channel.setLocalWindowSize(w_size);
+                            channel.setLocalPacketSize(max_packetsize);
+                            addChannel(channel);
+                            channel.getData(buf);
+                            channel.init();
+                        } catch (Exception e) {
+                            Logs.Println(proxy.Logger.ERROR, "Failed in SSH connect channel: " + e.toString());
+                            disconnectpacket("Failed in SSH connect channel: " + e.toString());
+                            disconnect();
+                        }
+                        
+                        firstcheck = true;
+                        break;
+                    case SSH_MSG_CHANNEL_DATA:
+                        buf.getInt();
+                        buf.getByte();
+                        buf.getByte();
+                        recipientchannel = buf.getInt();
+                        channel = Channel.getChannel(i, this);
+                        foo = buf.getString(start, length);
+                        if (channel == null) {
+                            break;
+                        }
+
+                        if (length[0] == 0) {
+                            break;
+                        }
+
+                        try {
+                            channel.write(foo, start[0], length[0]);
+                        } catch (Exception e) {
+//System.err.println(e);
+                            try {
+                                channel.disconnect();
+                            } catch (Exception ee) {
+                            }
+                            break;
+                        }
+                        int len = length[0];
+                        channel.setLocalWindowSize(channel.lwsize - len);
+                        if (channel.lwsize < channel.lwsize_max / 2) {
+                            packet.reset();
+                            buf.putByte((byte) SSH_MSG_CHANNEL_WINDOW_ADJUST);
+                            buf.putInt(channel.getRecipient());
+                            buf.putInt(channel.lwsize_max - channel.lwsize);
+                            synchronized (channel) {
+                                if (!channel.close) {
+                                    write(packet);
+                                }
+                            }
+                            channel.setLocalWindowSize(channel.lwsize_max);
+                        }
+                        break;
+
+                    case SSH_MSG_CHANNEL_EOF:
+                        buf.getInt();
+                        buf.getShort();
+                        i = buf.getInt();
+                        channel = Channel.getChannel(i, this);
+                        if (channel != null) {
+                            //channel.eof_remote=true;
+                            //channel.eof();
+                            channel.eof_remote();
+                        }
+                        /*
+                         packet.reset();
+                         buf.putByte((byte)SSH_MSG_CHANNEL_EOF);
+                         buf.putInt(channel.getRecipient());
+                         write(packet);
+                         */
+                        break;
+                    case SSH_MSG_CHANNEL_CLOSE:
+                        buf.getInt();
+                        buf.getShort();
+                        i = buf.getInt();
+                        channel = Channel.getChannel(i, this);
+                        if (channel != null) {
+//	      channel.close();
+                            channel.disconnect();
+                        }
+                        /*
+                         if(Channel.pool.size()==0){
+                         thread=null;
+                         }
+                         */
+                        break;
+                    case SSH_MSG_CHANNEL_OPEN_CONFIRMATION:
+
+                        //      byte      SSH_MSG_CHANNEL_OPEN_CONFIRMATION
+                        //      uint32    recipient channel
+                        //      uint32    sender channel
+                        //      uint32    initial window size
+                        //      uint32    maximum packet size
+                        //      ....      channel type specific data follows
+                        buf.reset();System.err.println("vap");
+                        packet.reset();
+                        buf.putByte((byte) SSH_MSG_CHANNEL_OPEN_CONFIRMATION);
+                        buf.putInt(senderchannel);
+                        buf.putInt(recipientchannel);
+                        buf.putInt(w_size);
+                        buf.putInt(max_packetsize);
+                        write(packet);
+                        break;
+
+                    case SSH_MSG_CHANNEL_OPEN_FAILURE:
+                        buf.getInt();
+                        buf.getShort();
+                        i = buf.getInt();
+                        channel = Channel.getChannel(i, this);
+                        if (channel != null) {
+                            int reason_code = buf.getInt();
+                            //foo=buf.getString();  // additional textual information
+                            //foo=buf.getString();  // language tag 
+                            channel.setExitStatus(reason_code);
+                            channel.close = true;
+                            channel.eof_remote = true;
+                            channel.setRecipient(0);
+                        }
+                        break;
+                    case SSH_MSG_CHANNEL_REQUEST:
+                        buf.getInt();
+                        buf.getShort();
+                        recipientchannel = buf.getInt();
+                        foo = buf.getString();
+                        System.err.println("Channel_ REQUEST: " + Tools.byte2str(foo));
+                        boolean reply = (buf.getByte() != 0);
+                        System.err.println("reply !=0 " + reply);
+                        channel = Channel.getChannel(recipientchannel, this);
+                        if (channel != null) {
+                            byte reply_type = 0x00;
+                            if ((Tools.byte2str(foo)).equals("exit-status")) {
+                                i = buf.getInt();             // exit-status
+                                channel.setExitStatus(i);
+                                reply_type = (byte) SSH_MSG_CHANNEL_SUCCESS;
+                            }
+                            if (reply) {
+                                packet.reset();
+                                buf.putByte(reply_type);
+                                buf.putInt(channel.getRecipient());
+                                write(packet);
+                            }
+                        } else {
+                        }
+                        break;
+
+                    case SSH_MSG_CHANNEL_SUCCESS:
+                        buf.getInt();
+                        buf.getShort();
+                        i = buf.getInt();
+                        channel = Channel.getChannel(i, this);
+                        if (channel == null) {
+                            break;
+                        }
+                        channel.reply = 1;
+                        break;
+                    case SSH_MSG_CHANNEL_FAILURE:
+                        buf.getInt();
+                        buf.getShort();
+                        i = buf.getInt();
+                        channel = Channel.getChannel(i, this);
+                        if (channel == null) {
+                            break;
+                        }
+                        channel.reply = 0;
+                        break;
+
+                    default:
+                        //System.err.println("Session.run: unsupported type "+msgType); 
+                        throw new IOException("Unknown SSH message type " + msgType);
+                }
+            }
+        } catch (Exception e) {
+            Logs.Println(proxy.Logger.INFO, "Caught an exception, leaving main loop due to " + e.getMessage());
+
+        }
+
+        try {
+            disconnect();
+        } catch (NullPointerException e) {
+            //System.err.println("@1");
+            //e.printStackTrace();
+        } catch (Exception e) {
+            //System.err.println("@2");
+            //e.printStackTrace();
+        }
+        isConnected = false;
     }
 
-////////////////////////////////////////////////////////////////////////////////
-/////////////////////////////////SSH ACTION CENTER//////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-    private boolean in_kex = false; // if Proxy have a key this Client in_kex = true
+//----------------------
+    private static final byte[] keepalivemsg = Tools.str2byte("keepalive@proxy.com");
 
+    private void addChannel(Channel channel) {
+        channel.setSession(this);
+    }
+
+    public void sendKeepAliveMsg() throws Exception {
+        Buffer buf = new Buffer();
+        Packet packet = new Packet(buf);
+        packet.reset();
+        buf.putByte((byte) SSH_MSG_GLOBAL_REQUEST);
+        buf.putString(keepalivemsg);
+        buf.putByte((byte) 1);
+        write(packet);
+    }
+    ////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////SSH ACTION CENTER//////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////
+    //-----------------------------------------    
+    private boolean in_kex = false; // if Proxy have a kex this Client in_kex = true
+
+    //-----------------------------------------    
     private void receive_kexinit(Buffer buf) throws Exception {
 
         int j = buf.getInt();
@@ -383,26 +866,84 @@ public class SessionSSH {
     //-----------------------------------------
     private void send_newkeys() throws Exception {
         // send SSH_MSG_NEWKEYS(21)
+        buf.reset();
         packet.reset();
         buf.putByte((byte) SSH_MSG_NEWKEYS);
         write(packet);
+
         proxy.Logs.Println(proxy.Logger.INFO, "SSH_MSG_NEWKEYS sent");
+    }
 
+    //-----------------------------------------
+    public void disconnectpacket(String message) throws Exception {
+        message = "Proxy Alert: " + message;
+        packet.reset();
+        buf.checkFreeSize(1 + 4 * 3 + message.length() + 2 + buffer_margin);
+        buf.putByte((byte) SSH_MSG_DISCONNECT);
+        buf.putInt(3);
+        buf.putString(proxy.Tools.str2byte(message));
+        buf.putString(proxy.Tools.str2byte("en"));
+        write(packet);
+    }
+
+    //-----------------------------------------
+    public void disconnect() {
+        if (!isConnected) {
+            return;
+        }
+        //System.err.println(this+": disconnect");
+        //Thread.dumpStack();
+        Logs.Println(proxy.Logger.INFO, "Disconnecting from  port ");
+
+        /*
+         for(int i=0; i<Channel.pool.size(); i++){
+         try{
+         Channel c=((Channel)(Channel.pool.elementAt(i)));
+         if(c.session==this) c.eof();
+         }
+         catch(Exception e){
+         }
+         } 
+         */
+        Channel.disconnect(this);
+
+        isConnected = false;
+
+        synchronized (lock) {
+            if (connectThread != null) {
+                Thread.yield();
+                connectThread.interrupt();
+                connectThread = null;
+            }
+        }
+        thread = null;
+        try {
+            if (io != null) {
+                if (io.in != null) {
+                    io.in.close();
+                }
+                if (io.out != null) {
+                    io.out.close();
+                }
+                if (io.out_ext != null) {
+                    io.out_ext.close();
+                }
+            }
+        } catch (Exception e) {
+        }
+
+        io = null;
+        Parent.Close();
+//        jsch.removeSession(this);
+        //System.gc();
     }
 
 //-----------------------------------------
-    private void receive_newkeys(Buffer buf, KeyExchange kex) throws Exception {
-        updateKeys(kex);
-        in_kex = false;
-    }
-//-----------------------------------------
-
     private void updateKeys(KeyExchange kex) throws Exception {
         byte[] K = kex.getK();
         byte[] H = kex.getH();
         HASH hash = kex.getHash();
 
-//    String[] guess=kex.guess;
         if (session_id == null) {
             session_id = new byte[H.length];
             System.arraycopy(H, 0, session_id, 0, H.length);
@@ -450,7 +991,8 @@ public class SessionSSH {
             Class c;
             String method;
 
-            method = guess[KeyExchange.PROPOSAL_ENC_ALGS_STOC];
+            //-------------s2c CIPHER
+            method = guess[KeyExchange.PROPOSAL_ENC_ALGS_CTOS];
             c = Class.forName(getConfig(method));
             s2ccipher = (Cipher) (c.newInstance());
             while (s2ccipher.getBlockSize() > Es2c.length) {
@@ -468,14 +1010,17 @@ public class SessionSSH {
             s2ccipher.init(Cipher.DECRYPT_MODE, Es2c, IVs2c);
             s2ccipher_size = s2ccipher.getIVSize();
 
+            //-------------s2c MAC
             method = guess[KeyExchange.PROPOSAL_MAC_ALGS_STOC];
             c = Class.forName(getConfig(method));
             s2cmac = (MAC) (c.newInstance());
+            MACs2c = expandKey(buf, K, H, MACs2c, hash, s2cmac.getBlockSize());
             s2cmac.init(MACs2c);
             //mac_buf=new byte[s2cmac.getBlockSize()];
-            s2cmac_result1 = new byte[s2cmac.getBlockSize()];
-            s2cmac_result2 = new byte[s2cmac.getBlockSize()];
+            c2smac_result1 = new byte[s2cmac.getBlockSize()];
+            c2smac_result2 = new byte[s2cmac.getBlockSize()];
 
+            //-------------c2s CIPHER
             method = guess[KeyExchange.PROPOSAL_ENC_ALGS_CTOS];
             c = Class.forName(getConfig(method));
             c2scipher = (Cipher) (c.newInstance());
@@ -494,11 +1039,14 @@ public class SessionSSH {
             c2scipher.init(Cipher.ENCRYPT_MODE, Ec2s, IVc2s);
             c2scipher_size = c2scipher.getIVSize();
 
+            //-------------c2s MAC
             method = guess[KeyExchange.PROPOSAL_MAC_ALGS_CTOS];
             c = Class.forName(getConfig(method));
             c2smac = (MAC) (c.newInstance());
+            MACc2s = expandKey(buf, K, H, MACc2s, hash, c2smac.getBlockSize());
             c2smac.init(MACc2s);
 
+            //------------- Compression
             method = guess[KeyExchange.PROPOSAL_COMP_ALGS_CTOS];
             initDeflater(method);
 
@@ -509,7 +1057,6 @@ public class SessionSSH {
                 throw e;
             }
             throw new ProxyException(e.toString(), e);
-            //System.err.println("updatekeys: "+e); 
         }
     }
 //-----------------------------------------
@@ -519,7 +1066,6 @@ public class SessionSSH {
 ////////////////////////////////////////////////////////////////////////////////
     private int s2ccipher_size = 8;
     private int c2scipher_size = 8;
-    int[] uncompress_len = new int[1];
 
     private String[] checkCiphers(String ciphers) {
         if (ciphers == null || ciphers.length() == 0) {
@@ -554,7 +1100,7 @@ public class SessionSSH {
 //------------------------------------------------
     static boolean checkCipher(String cipher) {
         try {
-            //System.err.println("cipher: checkCipher(String cipher)" + cipher);
+
             Class c = Class.forName(cipher);
             Cipher _c = (Cipher) (c.newInstance());
 
@@ -569,6 +1115,100 @@ public class SessionSSH {
     }
 //------------------------------------------------------------------------------
 
+    /*public*/ /*synchronized*/ void write(Packet packet, Channel c, int length) throws Exception {
+        long t = getTimeout();
+        while (true) {
+            if (in_kex) {
+                if (t > 0L && (System.currentTimeMillis() - kex_start_time) > t) {
+                    throw new ProxyException("timeout in wating for rekeying process.");
+                }
+                try {
+                    Thread.sleep(10);
+                } catch (java.lang.InterruptedException e) {
+                };
+                continue;
+            }
+            synchronized (c) {
+
+                if (c.rwsize < length) {
+                    try {
+                        c.notifyme++;
+                        c.wait(100);
+                    } catch (java.lang.InterruptedException e) {
+                    } finally {
+                        c.notifyme--;
+                    }
+                }
+
+                if (in_kex) {
+                    continue;
+                }
+
+                if (c.rwsize >= length) {
+                    c.rwsize -= length;
+                    break;
+                }
+
+            }
+            if (c.close || !c.isConnected()) {
+                throw new IOException("channel is broken");
+            }
+
+            boolean sendit = false;
+            int s = 0;
+            byte command = 0;
+            int recipient = -1;
+            synchronized (c) {
+                if (c.rwsize > 0) {
+                    long len = c.rwsize;
+                    if (len > length) {
+                        len = length;
+                    }
+                    if (len != length) {
+                        s = packet.shift((int) len,
+                                (c2scipher != null ? c2scipher_size : 8),
+                                (c2smac != null ? c2smac.getBlockSize() : 0));
+                    }
+                    command = packet.buffer.getCommand();
+                    recipient = c.getRecipient();
+                    length -= len;
+                    c.rwsize -= len;
+                    sendit = true;
+                }
+            }
+            if (sendit) {
+                _write(packet);
+                if (length == 0) {
+                    return;
+                }
+                packet.unshift(command, recipient, s, length);
+            }
+
+            synchronized (c) {
+                if (in_kex) {
+                    continue;
+                }
+                if (c.rwsize >= length) {
+                    c.rwsize -= length;
+                    break;
+                }
+
+                //try{ 
+                //System.out.println("1wait: "+c.rwsize);
+                //  c.notifyme++;
+                //  c.wait(100); 
+                //}
+                //catch(java.lang.InterruptedException e){
+                //}
+                //finally{
+                //  c.notifyme--;
+                //}
+            }
+        }
+        _write(packet);
+    }
+
+    //-----------------------------------------------------
     public void write(Packet packet) throws Exception {
 
         long t = getTimeout();
@@ -599,10 +1239,10 @@ public class SessionSSH {
 
     //-----------------------------------------------------
     private void _write(Packet packet) throws Exception {
-        synchronized (bucket) {
+        synchronized (lock) {
             encode(packet);
-            if (Parent.ClientOutput != null) {
-                put(packet);
+            if (io != null) {
+                io.put(packet);
                 seqo++;
             }
         }
@@ -612,27 +1252,23 @@ public class SessionSSH {
     public Buffer read(Buffer buf) throws Exception {
         int j = 0;
         while (true) {
-
             buf.reset();
-            getByte(buf.buffer, buf.index, s2ccipher_size);
-            buf.index += s2ccipher_size;
-
-            if (s2ccipher != null) {
-                s2ccipher.update(buf.buffer, 0, s2ccipher_size, buf.buffer, 0);
+            io.getByte(buf.buffer, buf.index, c2scipher_size);
+            buf.index += c2scipher_size;
+            if (c2scipher != null) {
+                c2scipher.update(buf.buffer, 0, c2scipher_size, buf.buffer, 0);
             }
-
-            //packet cipher len
             j = ((buf.buffer[0] << 24) & 0xff000000)
                     | ((buf.buffer[1] << 16) & 0x00ff0000)
                     | ((buf.buffer[2] << 8) & 0x0000ff00)
                     | ((buf.buffer[3]) & 0x000000ff);
+
             // RFC 4253 6.1. Maximum Packet Length
-
             if (j < 5 || j > PACKET_MAX_SIZE) {
-                start_discard(buf, s2ccipher, s2cmac, j, PACKET_MAX_SIZE);
+                start_discard(buf, c2scipher, c2smac, j, PACKET_MAX_SIZE);
             }
+            int need = j + 4 - c2scipher_size;
 
-            int need = j + 4 - s2ccipher_size;
             //if(need<0){
             //  throw new IOException("invalid data");
             //}
@@ -642,30 +1278,33 @@ public class SessionSSH {
                 buf.buffer = foo;
             }
 
-            if ((need % s2ccipher_size) != 0) {
+            if ((need % c2scipher_size) != 0) {
                 String message = "Bad packet length " + need;
-                start_discard(buf, s2ccipher, s2cmac, j, PACKET_MAX_SIZE - s2ccipher_size);
+                if (Logs.getLogger().isEnabled(proxy.Logger.FATAL)) {
+                    Logs.Println(proxy.Logger.FATAL, message);
+                }
+                start_discard(buf, c2scipher, c2smac, j, PACKET_MAX_SIZE - c2scipher_size);
             }
 
             if (need > 0) {
                 getByte(buf.buffer, buf.index, need);
                 buf.index += (need);
-                if (s2ccipher != null) {
-                    s2ccipher.update(buf.buffer, s2ccipher_size, need, buf.buffer, s2ccipher_size);
+                if (c2scipher != null) {
+                    c2scipher.update(buf.buffer, c2scipher_size, need, buf.buffer, c2scipher_size);
                 }
             }
 
-            if (s2cmac != null) {
-                s2cmac.update(seqi);
-                s2cmac.update(buf.buffer, 0, buf.index);
+            if (c2smac != null) {
+                c2smac.update(seqi);
+                c2smac.update(buf.buffer, 0, buf.index);
 
-                s2cmac.doFinal(s2cmac_result1, 0);
-                getByte(s2cmac_result2, 0, s2cmac_result2.length);
-                if (!java.util.Arrays.equals(s2cmac_result1, s2cmac_result2)) {
+                c2smac.doFinal(c2smac_result1, 0);
+                getByte(c2smac_result2, 0, c2smac_result2.length);
+                if (!java.util.Arrays.equals(c2smac_result1, c2smac_result2)) {
                     if (need > PACKET_MAX_SIZE) {
                         throw new IOException("MAC Error");
                     }
-                    start_discard(buf, s2ccipher, s2cmac, j, PACKET_MAX_SIZE - need);
+                    start_discard(buf, c2scipher, c2smac, j, PACKET_MAX_SIZE - need);
                     continue;
                 }
             }
@@ -687,37 +1326,29 @@ public class SessionSSH {
             }
 
             int type = buf.getCommand() & 0xff;
-            //System.err.println("read: "+type);
+            System.err.println("read:(nhan command tu client) " + type); // NHo xoa cho nay
             if (type == SSH_MSG_DISCONNECT) {
-                int reason_code = 0;
-                byte[] description = null;
-                byte[] language_tag = null;
-                try {
-                    buf.rewind();
-                    buf.getInt();
-                    buf.getShort();
-                    reason_code = buf.getInt();
-                    description = buf.getString();
-                    language_tag = buf.getString();
-                } catch (Exception e) {
-                    Logs.Println(proxy.Logger.ERROR, "SSH_MSG_DISCONNECT: "
-                            + reason_code
-                            + " " + proxy.Tools.byte2str(description)
-                            + " " + proxy.Tools.byte2str(language_tag));
-                }
+                buf.rewind();
+                buf.getInt();
+                buf.getShort();
+                int reason_code = buf.getInt();
+                byte[] description = buf.getString();
+                byte[] language_tag = buf.getString();
+                throw new ProxyException("SSH_MSG_DISCONNECT: "
+                        + reason_code
+                        + " " + Tools.byte2str(description)
+                        + " " + Tools.byte2str(language_tag));
                 //break;
             } else if (type == SSH_MSG_IGNORE) {
             } else if (type == SSH_MSG_UNIMPLEMENTED) {
-                int reason_id = 0;
-                try {
-                    buf.rewind();
-                    buf.getInt();
-                    buf.getShort();
-                    reason_id = buf.getInt();
-                } catch (Exception e) {
-                    Logs.Println(proxy.Logger.ERROR, "Received SSH_MSG_UNIMPLEMENTED for " + reason_id);
+                buf.rewind();
+                buf.getInt();
+                buf.getShort();
+                int reason_id = buf.getInt();
+                if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
+                    Logs.Println(proxy.Logger.INFO,
+                            "Received SSH_MSG_UNIMPLEMENTED for " + reason_id);
                 }
-
             } else if (type == SSH_MSG_DEBUG) {
                 buf.rewind();
                 buf.getInt();
@@ -730,45 +1361,52 @@ public class SessionSSH {
                  " "+Util.byte2str(message)+
                  " "+Util.byte2str(language_tag));
                  */
-
-//            } else if (type == SSH_MSG_CHANNEL_WINDOW_ADJUST) {
+                //}
+//            else if (type == SSH_MSG_CHANNEL_WINDOW_ADJUST) {
 //                buf.rewind();
 //                buf.getInt();
 //                buf.getShort();
 //                Channel c = Channel.getChannel(buf.getInt(), this);
 //                if (c == null) {
 //                } else {
-//                    c.addRemoteWindowSize(buf.getInt());
+//                    c.addRemoteWindowSize(buf.getUInt());
 //                }
-//            } else if (type == UserAuth.SSH_MSG_USERAUTH_SUCCESS) {
-//                isAuthed = true;
-//                if (inflater == null && deflater == null) {
-//                    String method;
-//                    method = guess[KeyExchange.PROPOSAL_COMP_ALGS_CTOS];
-//                    initDeflater(method);
-//
-//                    method = guess[KeyExchange.PROPOSAL_COMP_ALGS_STOC];
-//                    initInflater(method);
-//                }
+            } else if (type == UserAuth.SSH_MSG_USERAUTH_SUCCESS) {
+                isAuthed = true;
+                if (inflater == null && deflater == null) {
+                    String method;
+                    method = guess[KeyExchange.PROPOSAL_COMP_ALGS_CTOS];
+                    initDeflater(method);
+                    method = guess[KeyExchange.PROPOSAL_COMP_ALGS_STOC];
+                    initInflater(method);
+                }
                 break;
             } else {
                 break;
             }
         }
-        buf.rewind(); //reset
+        buf.rewind();
         return buf;
     }
 
 //------------------------------------------------------------------------------
+    int[] uncompress_len = new int[1];
+    int[] compress_len = new int[1];
+
     public void encode(Packet packet) throws Exception {
-
+        System.err.println("encode: (SERVER gui) " + packet.buffer.getCommand());
+//        System.err.println("        " + packet.buffer.index);
+//if(packet.buffer.getCommand()==96){
+//Thread.dumpStack();
+//}
         if (deflater != null) {
-            packet.buffer.index = deflater.compress(packet.buffer.buffer, 5, packet.buffer.index);
+            compress_len[0] = packet.buffer.index;
+            packet.buffer.buffer = deflater.compress(packet.buffer.buffer, 5, compress_len);
+            packet.buffer.index = compress_len[0];
         }
-
-        if (c2scipher != null) {
+        if (s2ccipher != null) {
             //packet.padding(c2scipher.getIVSize());
-            packet.padding(c2scipher_size);
+            packet.padding(s2ccipher_size);
             int pad = packet.buffer.buffer[4];
             synchronized (cookie) {
                 cookie.fill(packet.buffer.buffer, packet.buffer.index - pad, pad);
@@ -777,54 +1415,82 @@ public class SessionSSH {
             packet.padding(8);
         }
 
-        if (c2smac != null) {
-            c2smac.update(seqo);
-            c2smac.update(packet.buffer.buffer, 0, packet.buffer.index);
-            c2smac.doFinal(packet.buffer.buffer, packet.buffer.index);
+        if (s2cmac != null) {
+            s2cmac.update(seqo);
+            s2cmac.update(packet.buffer.buffer, 0, packet.buffer.index);
+            s2cmac.doFinal(packet.buffer.buffer, packet.buffer.index);
         }
-
-        if (c2scipher != null) {
+        if (s2ccipher != null) {
             byte[] buf = packet.buffer.buffer;
-            c2scipher.update(buf, 0, packet.buffer.index, buf, 0);
+            s2ccipher.update(buf, 0, packet.buffer.index, buf, 0);
         }
-
-        if (c2smac != null) {
-            packet.buffer.skip(c2smac.getBlockSize());
+        if (s2cmac != null) {
+            packet.buffer.skip(s2cmac.getBlockSize());
         }
     }
-
 //------------------------------------------------------------------------------
+
     private void start_discard(Buffer buf, Cipher cipher, MAC mac,
-            int packet_length, int discard) throws IOException {
-        MAC discard_mac = null;
+            int packet_length, int discard) throws ProxyException, IOException {
+        {
+            MAC discard_mac = null;
 
-        if (!cipher.isCBC()) {
-            Logs.Println(proxy.Logger.ERROR, "Packet corrupt");
-        }
-
-        if (packet_length != PACKET_MAX_SIZE && mac != null) {
-            discard_mac = mac;
-        }
-
-        discard -= buf.index;
-
-        while (discard > 0) {
-            buf.reset();
-            int len = discard > buf.buffer.length ? buf.buffer.length : discard;
-            getByte(buf.buffer, 0, len);
-            if (discard_mac != null) {
-                discard_mac.update(buf.buffer, 0, len);
+            if (!cipher.isCBC()) {
+                throw new ProxyException("Packet corrupt");
             }
-            discard -= len;
-        }
+            if (packet_length != PACKET_MAX_SIZE && mac != null) {
+                discard_mac = mac;
+            }
 
-        if (discard_mac != null) {
-            discard_mac.doFinal(buf.buffer, 0);
-        }
+            discard -= buf.index;
 
+            while (discard > 0) {
+                buf.reset();
+                int len = discard > buf.buffer.length ? buf.buffer.length : discard;
+                getByte(buf.buffer, 0, len);
+                if (discard_mac != null) {
+                    discard_mac.update(buf.buffer, 0, len);
+                }
+                discard -= len;
+            }
+
+            if (discard_mac != null) {
+                discard_mac.doFinal(buf.buffer, 0);
+            }
+
+            throw new ProxyException("Packet corrupt");
+        }
     }
 
 //------------------------------------------------------------------------------
+    private void initDeflater(String method) throws ProxyException {
+        if (method.equals("none")) {
+            deflater = null;
+            return;
+        }
+        String foo = getConfig(method);
+        if (foo != null) {
+            if (method.equals("zlib")
+                    || (isAuthed && method.equals("zlib@openssh.com"))) {
+                try {
+                    Class c = Class.forName(foo);
+                    deflater = (Compression) (c.newInstance());
+                    int level = 6;
+                    try {
+                        level = Integer.parseInt(getConfig("compression_level"));
+                    } catch (Exception ee) {
+                    }
+                    deflater.init(Compression.DEFLATER, level);
+                } catch (NoClassDefFoundError ee) {
+                    throw new ProxyException(ee.toString(), ee);
+                } catch (Exception ee) {
+                    throw new ProxyException(ee.toString(), ee);
+                    //System.err.println(foo+" isn't accessible.");
+                }
+            }
+        }
+    }
+
     private void initInflater(String method) throws ProxyException {
         if (method.equals("none")) {
             inflater = null;
@@ -845,46 +1511,50 @@ public class SessionSSH {
             }
         }
     }
+//------------------------------------------------------------------------------
 
-    private void initDeflater(String method) throws ProxyException {
-        if (method.equals("none")) {
-            deflater = null;
-            return;
+    private byte[] expandKey(Buffer buf, byte[] K, byte[] H, byte[] key,
+            HASH hash, int required_length) throws Exception {
+        byte[] result = key;
+        int size = hash.getBlockSize();
+        while (result.length < required_length) {
+            buf.reset();
+            buf.putMPInt(K);
+            buf.putByte(H);
+            buf.putByte(result);
+            hash.update(buf.buffer, 0, buf.index);
+            byte[] tmp = new byte[result.length + size];
+            System.arraycopy(result, 0, tmp, 0, result.length);
+            System.arraycopy(hash.digest(), 0, tmp, result.length, size);
+            Tools.bzero(result);
+            result = tmp;
         }
-        String foo = getConfig(method);
-        if (foo != null) {
-            if (method.equals("zlib")
-                    || (isAuthed && method.equals("zlib@openssh.com"))) {
-                try {
-                    Class c = Class.forName(foo);
-                    deflater = (Compression) (c.newInstance());
-                    int level = 6;
-                    try {
-                        level = Integer.parseInt(getConfig("compression_level"));
-                    } catch (Exception ee) {
-                    }
-                    deflater.init(Compression.DEFLATER, level);
-                } catch (Exception ee) {
-                    throw new ProxyException(ee.toString(), ee);
-                    //System.err.println(foo+" isn't accessible.");
-                }
-            }
-        }
+        return result;
     }
 
 ////////////////////////////////////////////////////////////////////////////////
     //----------------
-    protected byte GetByte() {
-        byte b;
-        try {
-            b = Parent.GetByteFromClient();
-
-        } catch (Exception e) {
-            b = 0;
-        }
-        return b;
+    public String GetPreferredAuthentications() {
+        // 0:public key
+        // 1:password
+        // 2: none
+        String cmethods = getConfig("PreferredAuthentications");
+        //String[] smethoda = proxy.Tools.split(cmethods, ",");
+        //return smethoda[1]; // password
+        return cmethods;
     }
 
+    //----------------
+//    protected byte GetByte() {
+//        byte b;
+//        try {
+//            b = Parent.GetByteFromClient();
+//
+//        } catch (Exception e) {
+//            b = 0;
+//        }
+//        return b;
+//    }
     //----------------
     public void getByte(byte[] array, int begin, int length) throws IOException {
         do {
@@ -921,21 +1591,20 @@ public class SessionSSH {
     }
 
     //------------------
-    public void put(Packet p) throws IOException, java.net.SocketException {
-        Parent.ClientOutput.write(p.buffer.buffer, 0, p.buffer.index);
-        Parent.ClientOutput.flush();
-    }
-
-    //------------------
-    void put(byte[] array, int begin, int length) throws IOException {
-        Parent.ClientOutput.write(array, begin, length);
-        Parent.ClientOutput.flush();
-    }
+//    public void put(Packet p) throws IOException, java.net.SocketException {
+//        Parent.ClientOutput.write(p.buffer.buffer, 0, p.buffer.index);
+//        Parent.ClientOutput.flush();
+//    }
+//
+//    //------------------
+//    void put(byte[] array, int begin, int length) throws IOException {
+//        Parent.ClientOutput.write(array, begin, length);
+//        Parent.ClientOutput.flush();
+//    }
     //------------------
 //    void put_ext(byte[] array, int begin, int length) throws IOException {
 //        Parent.ClientOutput.write(array, begin, length);
 //        Parent.ClientOutput.flush();
 //    }
 ////////////////////////////////////////////////////////////////////////////////
-
 }

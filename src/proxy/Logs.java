@@ -52,7 +52,7 @@ public class Logs {
         Logs.logger = logger;
     }
 
-    static Logger getLogger() {
+    public static Logger getLogger() {
         return logger;
     }
 

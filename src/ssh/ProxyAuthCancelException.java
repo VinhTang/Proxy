@@ -28,25 +28,21 @@
  */
 package ssh;
 
-public class ProxyException extends Exception {
+class ProxyAuthCancelException extends ProxyException {
 
-    //private static final long serialVersionUID=-1319309923966731989L;
-    private Throwable cause = null;
+    //private static final long serialVersionUID=3204965907117900987L;
+    String method;
 
-    public ProxyException() {
+    ProxyAuthCancelException() {
         super();
     }
 
-    public ProxyException(String s) {
+    ProxyAuthCancelException(String s) {
         super(s);
+        this.method = s;
     }
 
-    public ProxyException(String s, Throwable e) {
-        super(s);
-        this.cause = e;
-    }
-
-    public Throwable getCause() {
-        return this.cause;
+    public String getMethod() {
+        return method;
     }
 }

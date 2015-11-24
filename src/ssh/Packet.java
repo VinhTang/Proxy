@@ -5,14 +5,12 @@ package ssh;
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
-
 public class Packet {
 
-    private static Cookie cookie = null;
+    private static Cookie random = null;
 
     static void setRandom(Cookie foo) {
-        cookie = foo;
+        random = foo;
     }
 
     Buffer buffer;
@@ -39,11 +37,11 @@ public class Packet {
         ba4[3] = (byte) (len);
         System.arraycopy(ba4, 0, buffer.buffer, 0, 4);
         buffer.buffer[4] = (byte) pad;
-        synchronized (cookie) {
-            cookie.fill(buffer.buffer, buffer.index, pad);
+        synchronized (random) {
+            random.fill(buffer.buffer, buffer.index, pad);
         }
         buffer.skip(pad);
-    //buffer.putPad(pad);
+        //buffer.putPad(pad);
 /*
          for(int i=0; i<buffer.index; i++){
          System.err.print(Integer.toHexString(buffer.buffer[i]&0xff)+":");
@@ -52,14 +50,15 @@ public class Packet {
          */
     }
 
-    int shift(int len, int mac) {
+    int shift(int len, int bsize, int mac) {
         int s = len + 5 + 9;
-        int pad = (-s) & 15;
-        if (pad < 16) {
-            pad += 16;
+        int pad = (-s) & (bsize - 1);
+        if (pad < bsize) {
+            pad += bsize;
         }
         s += pad;
         s += mac;
+        s += 32; // margin for deflater; deflater may inflate data
 
         /**/
         if (buffer.buffer.length < s + buffer.index - 5 - 9 - len) {
