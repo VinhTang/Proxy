@@ -5,13 +5,16 @@
  */
 package proxy;
 
-import ssh.SessionSSH;
+
+import SSHClient.JSch;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketException;
+import SSHServer.SessionSSH;
+
 
 /**
  *
@@ -27,7 +30,13 @@ public class Proxy extends Thread {
 
     protected String ProxyHost = null;
     protected int ProxyHostport = 0;
-
+    
+    
+    protected String RemoteHost = null;
+    protected int RemotePort = 0;
+    protected String Host = null;
+    protected int Hostport =0;
+    
     public SOCKServer getSOCKServer() {
         return SOCKServer;
     }
@@ -44,7 +53,7 @@ public class Proxy extends Thread {
 
     public static Socket ClientSocket = null;
     public static Socket ServerSocket = null;
-
+ C
     public int Bufflen = DEFAULT_BUF_SIZE;
     public InputStream ClientInput = null;
     public OutputStream ClientOutput = null;
@@ -144,15 +153,17 @@ public class Proxy extends Thread {
 
             Logs.Println(Logger.DEBUG, "ok. ProcessRelay() Proxy.java");
 
-            SessionSSH SSH = new SessionSSH(this);
-
+            SSHServer.SessionSSH ProxyServer = new SessionSSH(this);
+            SSHClient.JSch ProxyClient = new JSch();
+            
             //start communication with Server
             switch (communicator.Command) {
                 case SOCK4.SC_CONNECT:
                     Logs.Println(Logger.DEBUG, "switch case (communicator)");
                     communicator.Reply_Connect();  // equal Connect()
                     //create SSH Trans
-                    SSH.Connect();
+                    ProxyServer.Connect();
+                    
             }
         } catch (Exception e) {
         }
@@ -165,7 +176,7 @@ public class Proxy extends Thread {
         while (ClientSocket != null) {
             try {
                 data = ClientInput.read();
-                System.err.println(" data: "+ data);
+                
             } catch (InterruptedIOException ex) {
                 Thread.yield();
                 continue;

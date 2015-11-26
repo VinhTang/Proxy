@@ -5,7 +5,7 @@
  */
 package proxy;
 
-import java.io.IOException;
+
 import java.net.InetAddress;
 
 /**
@@ -43,28 +43,28 @@ public class SOCK4 {
     }
     //-------------------
 
-    protected InetAddress ServerIP = null;
-    protected int ServerPort = 0;
+    protected InetAddress RemoteHost = null;
+    protected int RemotePort = 0;
 
-    protected InetAddress ClientIP = null;
-    protected int ClientPort = 0;
+    protected InetAddress Host = null;
+    protected int HostPort = 0;
 
     //----------------------------------------------
-    public InetAddress getClientAddress() {
-        return ClientIP;
+    public InetAddress getHost() {
+        return Host;
     }
 
-    public int getClientPort() {
-        return ClientPort;
+    public int getHosttPort() {
+        return HostPort;
     }
 
     //-------
-    public InetAddress getServerAddress() {
-        return ServerIP;
+    public InetAddress getRemoteHost() {
+        return RemoteHost;
     }
 
-    public int getServerPort() {
-        return ServerPort;
+    public int getRemotePort() {
+        return RemotePort;
     }
     //----------------------------------------------
     public String UID = "";
@@ -166,8 +166,8 @@ public class SOCK4 {
     //-------------------------
     public boolean Calculate_Address() {
         //remote IP
-        ServerIP = Tools.calcInetAddress(DST_Addr);
-        ServerPort = Tools.calcPort(DST_Port);
+        RemoteHost = Tools.calcInetAddress(DST_Addr);
+        RemotePort = Tools.calcPort(DST_Port);
 
         Logs.Println(Logger.INFO,ServerIP + "/" + ServerPort);
 

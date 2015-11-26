@@ -14,8 +14,7 @@ public class SOCKServer extends Thread {
     protected ServerSocket ListenSocket = null;
     protected int listenPort = 0;
 
-//    protected String ProxyHost = null;
-//    protected int ProxyHostport = 0;
+
     ////////////////////////////////////////////////////////////////////////////
     public int getPort() {
         return listenPort;

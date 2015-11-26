@@ -34,11 +34,9 @@ public class SSHProxy {
 //            UseSSHProxy = false;
 //        }
 //        EnableLog = Tools.LoadBoolean("EnableLog", true, Prop);
-        
-        
-        if ( ProxyLog == true) {
-           Logs.setLogger(new Logs.ProxyLog());
-           
+        if (ProxyLog == true) {
+            Logs.setLogger(new Logs.ProxyLog());
+
             Logs.PrintlnProxy(Logger.INFO, "Proxy SSH"
                     + "\n---------------------------------------\n"
                     + "    SOCKS Proxy Port : " + listen_Port
