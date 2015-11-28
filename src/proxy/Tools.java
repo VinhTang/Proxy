@@ -274,7 +274,7 @@ public class Tools {
     }
 ////////////////////////////////////////////////////////////////////////////////
 
-    public static InetAddress calcInetAddress(byte[] DST_Addr) {
+    public static String calcInetAddress(byte[] DST_Addr) {
         InetAddress IA = null;
         String sIA = "";
 
@@ -290,14 +290,14 @@ public class Tools {
                 sIA += ".";
             }
         }
+//        
+//        try {
+//            IA = InetAddress.getByName(sIA);
+//        } catch (UnknownHostException e) {
+//            return null;
+//        }
 
-        try {
-            IA = InetAddress.getByName(sIA);
-        } catch (UnknownHostException e) {
-            return null;
-        }
-
-        return IA; // IP Address
+        return sIA; // IP Address
     }
 
     //-------------------------

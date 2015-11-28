@@ -63,8 +63,6 @@ public class IO {
         return in.read();
     }
 
-  
-
     void getByte(byte[] array) throws IOException {
         getByte(array, 0, array.length);
     }

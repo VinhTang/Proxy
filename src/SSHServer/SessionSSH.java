@@ -100,7 +100,7 @@ public class SessionSSH implements Runnable {
 
     private volatile boolean isConnected = false;
 
-    private boolean isAuthed = false;
+    private volatile boolean isAuthed = false;
 
     private Thread connectThread = null;
     private Object lock = new Object();
@@ -115,13 +115,13 @@ public class SessionSSH implements Runnable {
 
     private long kex_start_time = 0L;
 
-    int max_auth_tries = 6;
-    int auth_failures = 0;
+    static int max_auth_tries = 6;
+    static int auth_failures = 0;
 
     IO io = null;
     Socket Sock;
-    InputStream in;
-    OutputStream out;
+    InputStream in = null;
+    OutputStream out = null;
 //    String usernameProxy = null;
 //    byte[] passwordProxy = null;
 ///////////////////////////////////////////////////////
@@ -155,8 +155,7 @@ public class SessionSSH implements Runnable {
     public SessionSSH(Proxy proxy) {
         this.lock = this;
         Parent = proxy;
-        buf = new Buffer();
-        packet = new Packet(buf);
+
         io = new IO();
     }
 //------------------------------------------------------------------------------
@@ -180,6 +179,7 @@ public class SessionSSH implements Runnable {
 
     public void Connect() throws Exception {
         setStream();
+        auth_failures = 0;
 //      RFC 4253          SSH Transport Layer Protocol
 //      ----------------------------------------------------
 //      byte         SSH_MSG_KEXINIT   (21)
@@ -200,6 +200,8 @@ public class SessionSSH implements Runnable {
         if (isConnected) {
             throw new ProxyException("session is already connected");
         }
+        Buffer buf = new Buffer();         
+        Packet packet = new Packet(buf);   
         try {
 
 //------------------------------------------------------------------------------        
@@ -359,7 +361,6 @@ public class SessionSSH implements Runnable {
             String smethods = null;
             if (auth == true) {
                 smethods = ((UserAuthNone) ua).getMethods();
-
             } else {
                 disconnectpacket("");
                 disconnect();
@@ -390,17 +391,19 @@ public class SessionSSH implements Runnable {
             }
 
             for (i = 0; i < smethoda.length; i++) {
+
                 if (smethoda[i].equals(methodname) == true) {
                     if (methodname.equals("password")) {
                         int bool = buf.getByte();
                         password = buf.getString();
-                    } else if (methodname.equals("publickey")) {
+                    } else if (methodname.equals("publickey") == true) {
                         int bool = buf.getByte();
                         algs_auth = buf.getString();
                         publicblob_auth = buf.getString();
                     }
                 }
             }
+
             //--------------------
             ua = null;
             try {
@@ -451,7 +454,6 @@ public class SessionSSH implements Runnable {
                             System.err.println("SSH: " + auth_failures);
                             System.err.println("SSH: " + max_auth_tries);
                             if (auth_failures == max_auth_tries) {
-                                System.err.println("vao ===");
                                 Logs.Println(proxy.Logger.INFO, "Client fail authentication: fail !");
                                 disconnect();
                                 auth_cancel = true;
@@ -470,6 +472,7 @@ public class SessionSSH implements Runnable {
                 }
 
             }
+            isConnected = true;
             firstcheck = true;
             synchronized (lock) {
                 if (isConnected) {
@@ -514,6 +517,7 @@ public class SessionSSH implements Runnable {
 ////////////////////////////////////////////////////////////////////////////////
 
     Runnable thread;
+    private Channel channel;
 
     public void run() {
         thread = this;
@@ -522,8 +526,8 @@ public class SessionSSH implements Runnable {
         Buffer buf = new Buffer();
         Packet packet = new Packet(buf);
         int i = 0;
-        Channel channel;
-        int senderchannel = new Random().nextInt((1024 - 100) + 1) + 100;;
+        channel = null;
+        int senderchannel = new Random().nextInt((1024 - 100) + 1) + 100;
         int recipientchannel = 0;
         int[] start = new int[1];
         int[] length = new int[1];
@@ -553,15 +557,10 @@ public class SessionSSH implements Runnable {
                         buf.getByte();
                         buf.getByte();
                         ctyp = Tools.byte2str(buf.getString());
-                        senderchannel = buf.getInt();
-                        w_size = buf.getInt();
-                        max_packetsize = buf.getInt();
-                        System.err.println("senderchannel: " + senderchannel);
-                        System.err.println("w_size: " + w_size + "- packetmax size: " + max_packetsize);
+
+                        //System.err.println("w_size: " + w_size + "- packetmax size: " + max_packetsize);
                         try {
                             channel = Channel.getChannel(ctyp);
-                            channel.setLocalWindowSize(w_size);
-                            channel.setLocalPacketSize(max_packetsize);
                             addChannel(channel);
                             channel.getData(buf);
                             channel.init();
@@ -580,8 +579,7 @@ public class SessionSSH implements Runnable {
                         recipientchannel = buf.getInt();
                         channel = Channel.getChannel(i, this);
                         foo = buf.getString(start, length);
-                        if (channel == null) {
-                            System.err.println("vao channel == null");
+                        if (channel == null) {                            
                             break;
                         }
                         if (length[0] == 0) {
@@ -655,11 +653,10 @@ public class SessionSSH implements Runnable {
                         //      uint32    maximum packet size
                         //      ....      channel type specific data follows
                         buf.reset();
-                        System.err.println("va0");
                         packet.reset();
                         buf.putByte((byte) SSH_MSG_CHANNEL_OPEN_CONFIRMATION);
-                        buf.putInt(senderchannel);
-                        buf.putInt(recipientchannel);
+                        buf.putInt(channel.getRecipient()); //recipient channel
+                        buf.putInt(0); //sender channel
                         buf.putInt(w_size);
                         buf.putInt(max_packetsize);
                         write(packet);
@@ -683,25 +680,26 @@ public class SessionSSH implements Runnable {
                     case SSH_MSG_CHANNEL_REQUEST:
                         buf.getInt();
                         buf.getShort();
-                        recipientchannel = buf.getInt();
-                        foo = buf.getString();
-                        System.err.println("Channel_ REQUEST: " + Tools.byte2str(foo));
+                        recipientchannel = buf.getInt();                        
+                        foo = buf.getString();                        
                         boolean reply = (buf.getByte() != 0);
-                        System.err.println("reply !=0 " + reply);
                         channel = Channel.getChannel(recipientchannel, this);
-                        if (channel != null) {
-                            byte reply_type = 0x00;
-                            if ((Tools.byte2str(foo)).equals("exit-status")) {
-                                i = buf.getInt();             // exit-status
-                                channel.setExitStatus(i);
-                                reply_type = (byte) SSH_MSG_CHANNEL_SUCCESS;
-                            }
-                            if (reply) {
-                                packet.reset();
-                                buf.putByte(reply_type);
-                                buf.putInt(channel.getRecipient());
-                                write(packet);
-                            }
+
+                        if (channel != null && Tools.byte2str(foo).equals("shell")) {
+//                            byte reply_type = 0x00;
+//                            if ((Tools.byte2str(foo)).equals("exit-status")) {
+//                                i = buf.getInt();             // exit-status
+//                                channel.setExitStatus(i);
+//                                reply_type = (byte) SSH_MSG_CHANNEL_SUCCESS;
+////                            }
+//                            if (reply) {
+                            packet.reset();
+                            buf.putByte((byte) SSH_MSG_CHANNEL_SUCCESS);
+                            buf.putInt(channel.getRecipient());
+                            write(packet);
+                            openChannel("shell"); // chi mo kenh sell
+
+//                            }
                         } else {
                         }
                         break;
@@ -756,40 +754,38 @@ public class SessionSSH implements Runnable {
             throw new ProxyException("session is down");
         }
         try {
+            System.err.println("type: channel " + type);
             Channel channel = Channel.getChannel(type);
             addChannel(channel);
-            channel.init();
-            if (channel instanceof ChannelSession) {
-                applyConfigChannel((ChannelSession) channel);
-            }
+            channel.init();            
             return channel;
         } catch (Exception e) {
             //e.printStackTrace();
         }
         return null;
     }
-
-    private void applyConfigChannel(ChannelSession channel) throws ProxyException {
-        ConfigRepository configRepository = Configure.getConfigRepository();
-        if (configRepository == null) {
-            return;
-        }
-
-        ConfigRepository.Config config
-                = configRepository.getConfig(org_host);
-
-        String value = null;
-
-        value = config.getValue("ForwardAgent");
-        if (value != null) {
-            channel.setAgentForwarding(value.equals("yes"));
-        }
-
-        value = config.getValue("RequestTTY");
-        if (value != null) {
-            channel.setPty(value.equals("yes"));
-        }
-    }
+//
+//    private void applyConfigChannel(ChannelSession channel) throws ProxyException {
+//        ConfigRepository configRepository = Configure.getConfigRepository();
+//        if (configRepository == null) {
+//            return;
+//        }
+//
+//        ConfigRepository.Config config
+//                = configRepository.getConfig("");
+//
+//        String value = null;
+//
+//        value = config.getValue("ForwardAgent");
+//        if (value != null) {
+//            channel.setAgentForwarding(value.equals("yes"));
+//        }
+//
+//        value = config.getValue("RequestTTY");
+//        if (value != null) {
+//            channel.setPty(value.equals("yes"));
+//        }
+//    }
 //----------------------
     private static final byte[] keepalivemsg = Tools.str2byte("keepalive@proxy.com");
 
@@ -1296,7 +1292,7 @@ public class SessionSSH implements Runnable {
                     | ((buf.buffer[1] << 16) & 0x00ff0000)
                     | ((buf.buffer[2] << 8) & 0x0000ff00)
                     | ((buf.buffer[3]) & 0x000000ff);
-            System.err.println("j:(read):" + j);
+
             // RFC 4253 6.1. Maximum Packet Length
             if (j < 5 || j > PACKET_MAX_SIZE) {
                 start_discard(buf, c2scipher, c2smac, j, PACKET_MAX_SIZE);

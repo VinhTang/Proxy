@@ -126,7 +126,7 @@ public class JSch{
 
     config.put("pbkdf", "SSHClient.jce.PBKDF");
 
-    config.put("StrictHostKeyChecking",  "ask");
+    config.put("StrictHostKeyChecking",  "No");
     config.put("HashKnownHosts",  "no");
 
     config.put("PreferredAuthentications", "gssapi-with-mic,publickey,keyboard-interactive,password");

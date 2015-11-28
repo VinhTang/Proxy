@@ -43,23 +43,23 @@ public class SOCK4 {
     }
     //-------------------
 
-    protected InetAddress RemoteHost = null;
+    protected String RemoteHost = null;
     protected int RemotePort = 0;
 
-    protected InetAddress Host = null;
+    protected String Host = null;
     protected int HostPort = 0;
 
     //----------------------------------------------
-    public InetAddress getHost() {
+    public String getHost() {
         return Host;
     }
 
-    public int getHosttPort() {
+    public int getHostPort() {
         return HostPort;
     }
 
     //-------
-    public InetAddress getRemoteHost() {
+    public String getRemoteHost() {
         return RemoteHost;
     }
 
@@ -148,7 +148,7 @@ public class SOCK4 {
 //            throw new Exception("Socks 4 - Can't connect to "
 //                    + Logs.getSocketInfo(Parent.ServerSocket));
 //        }
-
+//
         Logs.Println(Logger.INFO,"Connected to " + Logs.getSocketInfo(Parent.ServerSocket));
         Reply_Command(getSuccessCode());
 
@@ -158,6 +158,7 @@ public class SOCK4 {
     public void Calculate_Username() {
         String s = UID + " ";
         UserID = s.getBytes();
+        
         Logs.Println(Logger.DEBUG,"USERID : " + Tools.byte2str(UserID));
         // Send USerID to check role
         //UserID[UserID.length - 1] = 0x00;
@@ -169,12 +170,13 @@ public class SOCK4 {
         RemoteHost = Tools.calcInetAddress(DST_Addr);
         RemotePort = Tools.calcPort(DST_Port);
 
-        Logs.Println(Logger.INFO,ServerIP + "/" + ServerPort);
+        Logs.Println(Logger.INFO,"RemoteHost/RemotePort: "+RemoteHost + "/" + RemotePort);
 
-        ClientIP = Parent.ClientSocket.getInetAddress();
-        ClientPort = Parent.ClientSocket.getPort();
-
-        if ((ServerIP != null) && (ServerPort >= 0)) {
+        Host = Parent.ClientSocket.getInetAddress().toString();
+        HostPort = Parent.ClientSocket.getPort();
+        
+        Logs.Println(Logger.INFO,"Host/HostPort: "+Host + "/" + HostPort);
+        if ((RemoteHost != null) && (RemotePort >= 0)) {
             return true;
         } else {
             return false;

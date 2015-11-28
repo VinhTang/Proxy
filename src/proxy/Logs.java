@@ -85,12 +85,14 @@ public class Logs {
                 case Logger.ERROR:
                     System.err.print("\033[1;31m[" + dateFormat.format(date) + "]-" + name.get(new Integer(level)));
                     System.err.println(message.toUpperCase());
+                    System.err.print("\033[0;30m[");
                     break;
                 case Logger.DEBUG:
                     Exception e = new Exception();
                     System.out.print("\033[0;34m[" + dateFormat.format(date) + "]-" + name.get(new Integer(level)));
                     System.out.println(message.toUpperCase() + " -BY CLASS: " + e.getStackTrace()[2].getClassName()
                             + "." + e.getStackTrace()[2].getMethodName());
+                    System.out.print("\033[0;30m[");
                     break;
                 default:
                     System.out.print("[" + dateFormat.format(date) + "]-" + name.get(new Integer(level)));
@@ -139,15 +141,17 @@ public class Logs {
                     break;
                 case Logger.ERROR:
 
-                    System.out.print("\033[0;31m[" + dateFormat.format(date) + "]-" + name.get(new Integer(level)));
-                    System.out.println(message.toUpperCase() + " -BY CLASS: " + e.getStackTrace()[2].getClassName()
+                    System.err.print("\033[0;31m[" + dateFormat.format(date) + "]-" + name.get(new Integer(level)));
+                    System.err.println(message.toUpperCase() + " -BY CLASS: " + e.getStackTrace()[2].getClassName()
                             + "." + e.getStackTrace()[2].getMethodName());
+                    System.out.print("\033[0;30m");
                     break;
                 case Logger.DEBUG:
 
                     System.out.print("\033[0;34m[" + dateFormat.format(date) + "]-" + name.get(new Integer(level)));
                     System.out.println(message.toUpperCase() + " -BY CLASS: " + e.getStackTrace()[2].getClassName()
                             + "." + e.getStackTrace()[2].getMethodName());
+                    System.out.print("\033[0;30m");
                     break;
                 default:
                     System.out.print("[" + dateFormat.format(date) + "]-" + name.get(new Integer(level)));

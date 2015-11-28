@@ -40,23 +40,24 @@ public class ChannelShell extends ChannelSession{
 
   public void start() throws ProxyException{
     SessionSSH _session=getSession();
-    try{
-      sendRequests();
-
-      Request request=new RequestShell();
-      request.request(_session, this);
-    }
-    catch(Exception e){
-      if(e instanceof ProxyException) throw (ProxyException)e;
-      if(e instanceof Throwable)
-        throw new ProxyException("ChannelShell", (Throwable)e);
-      throw new ProxyException("ChannelShell");
-    }
-
+//    try{
+//      sendRequests();
+//
+//      Request request=new RequestShell();
+//      request.request(_session, this);
+//    }
+//    catch(Exception e){
+//      if(e instanceof ProxyException) throw (ProxyException)e;
+//      if(e instanceof Throwable)
+//        throw new ProxyException("ChannelShell", (Throwable)e);
+//      throw new ProxyException("ChannelShell");
+//    }
+      
     if(io.in!=null){
       thread=new Thread(this);
       thread.setName("Shell for host (thieu cai nay)");
       if(_session.daemon_thread){
+          proxy.Logs.Println(proxy.Logger.DEBUG,_session.daemon_thread+".");
         thread.setDaemon(_session.daemon_thread);
       }
       thread.start();

@@ -18,12 +18,12 @@ public class Loggertest {
             JSch jsch = new JSch();
 
             String host = null;
-           
+
             String user = "vinh";
-            host ="192.168.10.111";
+            host = "192.168.10.111";
 
             Session session = jsch.getSession(user, host, 22);
-
+            session.setPassword("123");
             // username and password will be given via UserInfo interface.
 //            UserInfo ui = new MyUserInfo();
 //            session.setUserInfo(ui);
@@ -32,9 +32,9 @@ public class Loggertest {
 
             Channel channel = session.openChannel("shell");
 
-            channel.setInputStream(System.in);
-            channel.setOutputStream(System.out);
-
+//            channel.setInputStream(System.in);
+//            channel.setOutputStream(System.out);
+            channel.sendChannelOpen();
             channel.connect();
         } catch (Exception e) {
             System.out.println(e);

@@ -59,6 +59,8 @@ public class SOCK5 extends SOCK4 {
     static final byte SRE_Auth[] = {(byte) 0x05, (byte) 0x02};
     static final byte SRE_AuthSuccess[] = {(byte) 0x01, (byte) 0x00};
     static final byte SRE_AuthFail[] = {(byte) 0x01, (byte) 0x01};
+    
+    
 
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -208,7 +210,7 @@ public class SOCK5 extends SOCK4 {
         
         if (!Calculate_Address()) {  // Gets the IP Address 
             Refuse_Command((byte) 0x04);// Host Not Exists...
-            throw new Exception("SOCKS 5 - Unknown Host/IP address '" + ServerIP.toString() + "'");
+            throw new Exception("SOCKS 5 - Unknown Host/IP address '" + RemoteHost.toString() + "'");
         }
         
         Logs.Println(Logger.INFO, "SOCKS 5 - Accepted SOCKS5 Command: \"" + commName(Command) + "\"");
@@ -284,6 +286,7 @@ public class SOCK5 extends SOCK4 {
 
     private boolean CheckAccess() {
         //temp access
+        Logs.Println(Logger.DEBUG, "WARNING: Atennd to check this access()");
         return true;
     }
     ////////////////////////////////////////////////////////////////////////////

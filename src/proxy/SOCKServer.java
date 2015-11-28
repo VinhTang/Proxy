@@ -5,7 +5,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 
 public class SOCKServer extends Thread {
-
+    
     public static final int LISTEN_TIMEOUT = 200;
     public static final int DEFAULT_TIMEOUT = 200;
 
@@ -34,6 +34,7 @@ public class SOCKServer extends Thread {
     ////////////////////////////////////////////////////////////////////////////
 
     public void run() {
+        
         Logs.PrintlnProxy(Logger.INFO, "SOCKS Server Start Listen !");
         SetBucket(this);
         Listen();

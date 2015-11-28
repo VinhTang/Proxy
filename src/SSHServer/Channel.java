@@ -183,7 +183,12 @@ public abstract class Channel implements Runnable {
     }
 
     public void setInputStream(InputStream in) {
-        io.setInputStream(in, false);
+        try {
+            io.setInputStream(in, false);
+        } catch (Exception e) {
+            proxy.Logs.Println(proxy.Logger.DEBUG, e.toString());
+        }
+
     }
 
     public void setInputStream(InputStream in, boolean dontclose) {
@@ -742,7 +747,7 @@ public abstract class Channel implements Runnable {
     }
 
     public SessionSSH getSession() throws ProxyException {
-        SessionSSH _session = session;
+        SessionSSH _session = session;        
         if (_session == null) {
             throw new ProxyException("session is not available");
         }

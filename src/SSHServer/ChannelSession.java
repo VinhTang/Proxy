@@ -190,6 +190,7 @@ class ChannelSession extends Channel {
         this.thp = hp;
     }
 
+    // no use
     protected void sendRequests() throws Exception {
         SessionSSH _session = getSession();
         Request request;
@@ -233,15 +234,21 @@ class ChannelSession extends Channel {
     }
 
     public void run() {
-        //System.err.println(this+":run >");
+       // System.err.println(this+":run >");
 
         Buffer buf = new Buffer(rmpsize);
         Packet packet = new Packet(buf);
         int i = -1;
         try {
+        System.err.println(isConnected());
+        if(thread != null) System.err.println("ok thread");
+        if(io != null) System.err.println("ok io");
+        if(io.in != null) System.err.println("ok io.in");
             while (isConnected() && thread != null && io != null && io.in != null) {
+                System.err.println("1543543534534534");
                 i = io.in.read(buf.buffer, 14, buf.buffer.length - 14 - SessionSSH.buffer_margin);
-                i = Integer.valueOf("hello world");System.err.println(i);System.err.println(" i : "+i);
+                i = 7174;
+                System.err.println("2");
                 if (i == 0) {
                     continue;
                 }
@@ -260,9 +267,10 @@ class ChannelSession extends Channel {
                 buf.skip(i);
                 getSession().write(packet, this, i);
             }
+        
         } catch (Exception e) {
-            //System.err.println("# ChannelExec.run");
-            //e.printStackTrace();
+//            System.err.println("# ChannelExec.run");
+//            e.printStackTrace();
         }
         Thread _thread = thread;
         if (_thread != null) {

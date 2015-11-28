@@ -61,8 +61,11 @@ public class IO{
     out.flush();
   }
   void put(byte[] array, int begin, int length) throws IOException {
+   
+          
     out.write(array, begin, length);
     out.flush();
+   
   }
   void put_ext(byte[] array, int begin, int length) throws IOException {
     out_ext.write(array, begin, length);
