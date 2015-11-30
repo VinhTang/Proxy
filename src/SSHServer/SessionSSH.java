@@ -24,7 +24,7 @@ public class SessionSSH implements Runnable {
 
     static private final String version = "OpenSSH_5.3";
     ////////////////////////////////////////////////////////////////////////////
-    public Proxy Parent;
+    public Proxy parent;
 
     static final int SSH_MSG_DISCONNECT = 1;
     static final int SSH_MSG_IGNORE = 2;
@@ -154,8 +154,7 @@ public class SessionSSH implements Runnable {
 
     public SessionSSH(Proxy proxy) {
         this.lock = this;
-        Parent = proxy;
-
+        parent = proxy;
         io = new IO();
     }
 //------------------------------------------------------------------------------
@@ -163,14 +162,22 @@ public class SessionSSH implements Runnable {
     private void setStream() {
         synchronized (lock) {
             try {
-                in = Parent.ClientInput;
+                in = parent.ClientInput;
                 io.setInputStream(in);
-                out = Parent.ClientOutput;
+                out = parent.ClientOutput;
                 io.setOutputStream(out);
             } catch (Exception e) {
-                System.err.println(e.toString());
+                //System.err.println(e.toString());
             }
         }
+    }
+
+    public InputStream getInputstream() {
+        return in;
+    }
+
+    public OutputStream getOutputstream() {
+        return out;
     }
 
     public boolean isConnected() {
@@ -200,8 +207,8 @@ public class SessionSSH implements Runnable {
         if (isConnected) {
             throw new ProxyException("session is already connected");
         }
-        Buffer buf = new Buffer();         
-        Packet packet = new Packet(buf);   
+        Buffer buf = new Buffer();
+        Packet packet = new Packet(buf);
         try {
 
 //------------------------------------------------------------------------------        
@@ -332,7 +339,7 @@ public class SessionSSH implements Runnable {
                 proxy.Logs.Println(proxy.Logger.INFO, "invalid signal. Connect Resfuse.");
                 disconnectpacket("Invalid signal. Connect Resfuse");
                 disconnect();
-                Parent.Close();
+                parent.Close();
             }
 //------------------------------------------------------------------------------        
 //                              Authentication
@@ -366,7 +373,6 @@ public class SessionSSH implements Runnable {
                 disconnect();
             }
 
-            int methodi = 0;
             String[] smethoda = Tools.split(smethods, ",");
 
             //-----------
@@ -472,7 +478,7 @@ public class SessionSSH implements Runnable {
                 }
 
             }
-            isConnected = true;
+
             firstcheck = true;
             synchronized (lock) {
                 if (isConnected) {
@@ -526,7 +532,7 @@ public class SessionSSH implements Runnable {
         Buffer buf = new Buffer();
         Packet packet = new Packet(buf);
         int i = 0;
-        channel = null;
+
         int senderchannel = new Random().nextInt((1024 - 100) + 1) + 100;
         int recipientchannel = 0;
         int[] start = new int[1];
@@ -534,8 +540,10 @@ public class SessionSSH implements Runnable {
         int msgType = 0;
 
         String ctyp = null;
-        int w_size = 0;
-        int max_packetsize = 0;
+
+        long rwps = 0;
+        int rmpsize = 0;
+        
         msgType = SSH_MSG_CHANNEL_OPEN;
         firstcheck = false;
         try {
@@ -557,14 +565,18 @@ public class SessionSSH implements Runnable {
                         buf.getByte();
                         buf.getByte();
                         ctyp = Tools.byte2str(buf.getString());
-
-                        //System.err.println("w_size: " + w_size + "- packetmax size: " + max_packetsize);
                         try {
                             channel = Channel.getChannel(ctyp);
                             addChannel(channel);
                             channel.getData(buf);
                             channel.init();
-
+                            System.err.println("receipereL (OPEN):"+ channel.getRecipient());
+//                            Thread tmp = new Thread(channel);
+//                            tmp.setName("Channel (SSH_OPEN) " + ctyp);
+//                            if (daemon_thread) {
+//                                tmp.setDaemon(daemon_thread);
+//                            }
+//                            tmp.start();
                         } catch (Exception e) {
                             Logs.Println(proxy.Logger.ERROR, "Failed in SSH connect channel: " + e.toString());
                             disconnectpacket("Failed in SSH connect channel: " + e.toString());
@@ -579,7 +591,7 @@ public class SessionSSH implements Runnable {
                         recipientchannel = buf.getInt();
                         channel = Channel.getChannel(i, this);
                         foo = buf.getString(start, length);
-                        if (channel == null) {                            
+                        if (channel == null) {
                             break;
                         }
                         if (length[0] == 0) {
@@ -638,11 +650,7 @@ public class SessionSSH implements Runnable {
 //	      channel.close();
                             channel.disconnect();
                         }
-                        /*
-                         if(Channel.pool.size()==0){
-                         thread=null;
-                         }
-                         */
+
                         break;
                     case SSH_MSG_CHANNEL_OPEN_CONFIRMATION:
 
@@ -655,10 +663,14 @@ public class SessionSSH implements Runnable {
                         buf.reset();
                         packet.reset();
                         buf.putByte((byte) SSH_MSG_CHANNEL_OPEN_CONFIRMATION);
-                        buf.putInt(channel.getRecipient()); //recipient channel
-                        buf.putInt(0); //sender channel
-                        buf.putInt(w_size);
-                        buf.putInt(max_packetsize);
+                        //System.err.println("confirm: " + channel.getRecipient());
+                        
+                        buf.putInt(channel.getRecipient()); //recipient channel 
+                        buf.putInt(senderchannel); //sender channel
+                        rwps = channel.rmpsize;
+                        rmpsize = channel.rmpsize;
+                        buf.putInt((int) channel.rwsize);
+                        buf.putInt(channel.rmpsize);
                         write(packet);
                         break;
 
@@ -680,30 +692,49 @@ public class SessionSSH implements Runnable {
                     case SSH_MSG_CHANNEL_REQUEST:
                         buf.getInt();
                         buf.getShort();
-                        recipientchannel = buf.getInt();                        
-                        foo = buf.getString();                        
+                        recipientchannel = buf.getInt();  System.err.println("request (recipient) "+ recipientchannel);
+                        foo = buf.getString();
                         boolean reply = (buf.getByte() != 0);
-                        channel = Channel.getChannel(recipientchannel, this);
 
                         if (channel != null && Tools.byte2str(foo).equals("shell")) {
-//                            byte reply_type = 0x00;
-//                            if ((Tools.byte2str(foo)).equals("exit-status")) {
-//                                i = buf.getInt();             // exit-status
-//                                channel.setExitStatus(i);
-//                                reply_type = (byte) SSH_MSG_CHANNEL_SUCCESS;
-////                            }
-//                            if (reply) {
+
                             packet.reset();
                             buf.putByte((byte) SSH_MSG_CHANNEL_SUCCESS);
                             buf.putInt(channel.getRecipient());
                             write(packet);
-                            openChannel("shell"); // chi mo kenh sell
-
-//                            }
+                            // chi mo kenh sell
+                            channel = Channel.getChannel(recipientchannel, this);
+                            
+                            channel = openChannel("shell");
+                            channel.setRecipient(recipientchannel);
+                            channel.setRemoteWindowSize(rwps);
+                            channel.setRemotePacketSize(rmpsize);
+                            channel.start();
                         } else {
                         }
+//                        buf.getInt();
+//                        buf.getShort();
+//                        i = buf.getInt();
+//                        foo = buf.getString();
+//                        boolean reply = (buf.getByte() != 0);
+//                        channel = Channel.getChannel(i, this);
+//                        if (channel != null) {
+//                            byte reply_type = (byte) SSH_MSG_CHANNEL_FAILURE;
+//                            if ((Tools.byte2str(foo)).equals("exit-status")) {
+//                                i = buf.getInt();             // exit-status
+//                                channel.setExitStatus(i);
+//                            }
+//                            reply_type = (byte) SSH_MSG_CHANNEL_SUCCESS;
+//
+//                            if (reply) {
+//                                packet.reset();
+//                                buf.putByte(reply_type);
+//                                buf.putInt(channel.getRecipient());
+//                                write(packet);
+//                            }
+//                        } else {
+//                        }
                         break;
-
                     case SSH_MSG_CHANNEL_SUCCESS:
                         buf.getInt();
                         buf.getShort();
@@ -755,12 +786,14 @@ public class SessionSSH implements Runnable {
         }
         try {
             System.err.println("type: channel " + type);
-            Channel channel = Channel.getChannel(type);
+            channel = Channel.getChannel(type);
+
             addChannel(channel);
-            channel.init();            
+            channel.init();
             return channel;
+
         } catch (Exception e) {
-            //e.printStackTrace();
+            e.printStackTrace();
         }
         return null;
     }
@@ -963,7 +996,7 @@ public class SessionSSH implements Runnable {
         }
 
         io = null;
-        Parent.Close();
+        parent.Close();
 //        jsch.removeSession(this);
         //System.gc();
     }
@@ -1145,21 +1178,13 @@ public class SessionSSH implements Runnable {
     }
 //------------------------------------------------------------------------------
 
-    /*public*/ /*synchronized*/ void write(Packet packet, Channel c, int length) throws Exception {
+    /*public*/ synchronized void write(Packet packet, Channel c, int length) throws Exception {
+
         long t = getTimeout();
         while (true) {
-            if (in_kex) {
-                if (t > 0L && (System.currentTimeMillis() - kex_start_time) > t) {
-                    throw new ProxyException("timeout in wating for rekeying process.");
-                }
-                try {
-                    Thread.sleep(10);
-                } catch (java.lang.InterruptedException e) {
-                };
-                continue;
-            }
-            synchronized (c) {
 
+            synchronized (c) {
+                System.err.println("--------------1");
                 if (c.rwsize < length) {
                     try {
                         c.notifyme++;
@@ -1170,16 +1195,13 @@ public class SessionSSH implements Runnable {
                     }
                 }
 
-                if (in_kex) {
-                    continue;
-                }
-
                 if (c.rwsize >= length) {
                     c.rwsize -= length;
                     break;
                 }
 
             }
+            System.err.println("--------------2");
             if (c.close || !c.isConnected()) {
                 throw new IOException("channel is broken");
             }
@@ -1188,6 +1210,7 @@ public class SessionSSH implements Runnable {
             int s = 0;
             byte command = 0;
             int recipient = -1;
+            System.err.println("--------------3");
             synchronized (c) {
                 if (c.rwsize > 0) {
                     long len = c.rwsize;
@@ -1199,6 +1222,7 @@ public class SessionSSH implements Runnable {
                                 (c2scipher != null ? c2scipher_size : 8),
                                 (c2smac != null ? c2smac.getBlockSize() : 0));
                     }
+                    System.err.println("--------------4");
                     command = packet.buffer.getCommand();
                     recipient = c.getRecipient();
                     length -= len;
@@ -1206,6 +1230,7 @@ public class SessionSSH implements Runnable {
                     sendit = true;
                 }
             }
+            System.err.println("--------------5:sendit " + sendit);
             if (sendit) {
                 _write(packet);
                 if (length == 0) {
@@ -1213,11 +1238,9 @@ public class SessionSSH implements Runnable {
                 }
                 packet.unshift(command, recipient, s, length);
             }
-
+            System.err.println("--------------6");
             synchronized (c) {
-                if (in_kex) {
-                    continue;
-                }
+
                 if (c.rwsize >= length) {
                     c.rwsize -= length;
                     break;
@@ -1235,6 +1258,7 @@ public class SessionSSH implements Runnable {
                 //}
             }
         }
+        System.err.println("--------------7");
         _write(packet);
     }
 
@@ -1268,7 +1292,7 @@ public class SessionSSH implements Runnable {
     }
 
     //-----------------------------------------------------
-    private void _write(Packet packet) throws Exception {
+    public void _write(Packet packet) throws Exception {
         synchronized (lock) {
             encode(packet);
             if (io != null) {
@@ -1317,7 +1341,7 @@ public class SessionSSH implements Runnable {
             }
 
             if (need > 0) {
-                getByte(buf.buffer, buf.index, need);
+                io.getByte(buf.buffer, buf.index, need);
                 buf.index += (need);
                 if (c2scipher != null) {
                     c2scipher.update(buf.buffer, c2scipher_size, need, buf.buffer, c2scipher_size);
@@ -1329,7 +1353,7 @@ public class SessionSSH implements Runnable {
                 c2smac.update(buf.buffer, 0, buf.index);
 
                 c2smac.doFinal(c2smac_result1, 0);
-                getByte(c2smac_result2, 0, c2smac_result2.length);
+                io.getByte(c2smac_result2, 0, c2smac_result2.length);
                 if (!java.util.Arrays.equals(c2smac_result1, c2smac_result2)) {
                     if (need > PACKET_MAX_SIZE) {
                         throw new IOException("MAC Error");
@@ -1477,7 +1501,7 @@ public class SessionSSH implements Runnable {
             while (discard > 0) {
                 buf.reset();
                 int len = discard > buf.buffer.length ? buf.buffer.length : discard;
-                getByte(buf.buffer, 0, len);
+                io.getByte(buf.buffer, 0, len);
                 if (discard_mac != null) {
                     discard_mac.update(buf.buffer, 0, len);
                 }
@@ -1575,35 +1599,6 @@ public class SessionSSH implements Runnable {
     }
 
     //----------------
-//    protected byte GetByte() {
-//        byte b;
-//        try {
-//            b = Parent.GetByteFromClient();
-//
-//        } catch (Exception e) {
-//            b = 0;
-//        }
-//        return b;
-//    }
-    //----------------
-    public void getByte(byte[] array, int begin, int length) throws IOException {
-        do {
-            int completed = 0;
-            try {
-                completed = Parent.ClientInput.read(array, begin, length);
-            } catch (Exception e) {
-            }
-            if (completed < 0) {
-                throw new IOException("End of IO Stream Read");
-            }
-            begin += completed;
-            length -= completed;
-        } while (length > 0);
-
-        return;
-    }
-
-    //----------------
     public String getConfig(String key) {
         Object foo = null;
         if (config != null) {
@@ -1621,20 +1616,5 @@ public class SessionSSH implements Runnable {
     }
 
     //------------------
-//    public void put(Packet p) throws IOException, java.net.SocketException {
-//        Parent.ClientOutput.write(p.buffer.buffer, 0, p.buffer.index);
-//        Parent.ClientOutput.flush();
-//    }
-//
-//    //------------------
-//    void put(byte[] array, int begin, int length) throws IOException {
-//        Parent.ClientOutput.write(array, begin, length);
-//        Parent.ClientOutput.flush();
-//    }
-    //------------------
-//    void put_ext(byte[] array, int begin, int length) throws IOException {
-//        Parent.ClientOutput.write(array, begin, length);
-//        Parent.ClientOutput.flush();
-//    }
 ////////////////////////////////////////////////////////////////////////////////
 }

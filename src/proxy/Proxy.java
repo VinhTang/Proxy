@@ -8,6 +8,8 @@ package proxy;
 import SSHClient.JSch;
 import SSHClient.JSchException;
 import SSHServer.Buffer;
+import SSHServer.Packet;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
@@ -15,16 +17,6 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketException;
 import SSHServer.SessionSSH;
-import com.sun.xml.internal.bind.v2.util.ByteArrayOutputStreamEx;
-import com.sun.xml.internal.ws.util.ByteArrayBuffer;
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
-
-import java.io.FileOutputStream;
-
-import org.apache.commons.io.IOUtils;
-import sun.nio.ch.IOUtil;
 
 /**
  *
@@ -93,6 +85,12 @@ public class Proxy extends Thread {
     public static final int DEFAULT_TIMEOUT = 3 * 60 * 1000;
 
     public final boolean Have_Authentication = false; //SOCKs 5 Authentication Method
+
+    public Proxy getProxy() {
+        return this;
+    }
+
+    public SSHServer.Buffer buf;
     ////////////////////////////////////////////////////////////////////////////
 
     public Proxy(SOCKServer SockServer, Socket ClientSocket, boolean fLog) {
@@ -115,7 +113,7 @@ public class Proxy extends Thread {
                 Logs.Println(Logger.ERROR, "Socket Exception during seting Timeout.");
             }
         }
-
+        buf = new SSHServer.Buffer();
         Logs.Println(Logger.INFO, "Proxy Created!");
     }
 
@@ -194,9 +192,9 @@ public class Proxy extends Thread {
                 case SOCK4.SC_CONNECT:
                     communicator.Reply_Connect();  // equal Connect()
                     //create SSH Trans
+                    
                     ServerSide.Connect();
-
-                    System.err.println("ra");
+                    createClientSide();
                     createClientSide();
                     Relay();
             }
@@ -212,15 +210,39 @@ public class Proxy extends Thread {
     private SSHClient.JSch ClientSide;
     private SSHClient.Session session;
     private SSHClient.Channel channelClient;
+    public static byte[] data;
 
+    //---------------------------------
+    public void intData(int size) {
+        data = new byte[size];
+    }
+    public static volatile int f = -1;
+
+    public void setData(byte[] foo, int start, int length) {
+        f = 1;
+        intData(length);
+        System.arraycopy(foo, start, data, 0, length);
+
+//       System.err.println("data :" + Tools.byte2str(data));
+    }
+
+    public byte[] getData() {
+
+        System.err.println("i data proxy " + data.length);
+        return data;
+    }
+
+    //--------------------------------
     public void createClientSide() {
         try {
             ClientSide = new JSch();
             session = ClientSide.getSession(UserSSH, RemoteHost);
             session.setPort(RemotePort);
             session.setPassword(PassSSH);
+            session.setProxy((proxy.Proxy) this);
             session.connect();
-
+            channelClient = session.openChannel("shell");
+            channelClient.connect();
         } catch (JSchException ex) {
             Logs.Println(Logger.ERROR, ex.toString());
             Close();
@@ -231,33 +253,6 @@ public class Proxy extends Thread {
 
     private void Relay() throws Exception {
 
-        channelClient = session.openChannel("shell");
-
-        channelClient.setInputStream(System.in);
-        channelClient.setOutputStream(System.out);
-        channelClient.connect();
-
-        //channelServer.setInputStream(inClient);
-//        System.err.println("2-----------");
-//       
-//        
-//        InputStream inServer = null;
-//        OutputStream outServer = null;System.err.println("3-------");
-//        channelServer.setInputStream(inServer);
-//        channelServer.setOutputStream(outServer);System.err.println("44444444444");
-//        channelServer.start();System.err.println("ra");
-//
-//        while(true){
-//            if(inClient.available() >0){ System.err.println("vào");
-//                Util.copy(inClient,outServer);
-//                
-//            }
-//            if(inServer.available() >0){
-//                Util.copy(inServer,outClient);
-//            }
-//        }
-//        
-        //channelServer.setInputStream();
     }
 
     ////////////////////////////////////////////////////////////////////////////

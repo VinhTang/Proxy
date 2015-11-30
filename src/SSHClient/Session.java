@@ -31,6 +31,7 @@ package SSHClient;
 import java.io.*;
 import java.net.*;
 import java.util.Vector;
+import javafx.scene.Parent;
 
 public class Session implements Runnable {
 
@@ -153,7 +154,10 @@ public class Session implements Runnable {
 
     JSch jsch;
 
+    proxy.Proxy parent;
+
     Session(JSch jsch, String username, String host, int port) throws JSchException {
+
         super();
         this.jsch = jsch;
         buf = new Buffer();
@@ -280,7 +284,7 @@ public class Session implements Runnable {
                         || ((i != buf.buffer.length)
                         && (buf.buffer[0] != 'S' || buf.buffer[1] != 'S'
                         || buf.buffer[2] != 'H' || buf.buffer[3] != '-'))) {
-          // It must not start with 'SSH-'
+                    // It must not start with 'SSH-'
                     //System.err.println(new String(buf.buffer, 0, i);
                     continue;
                 }
@@ -396,7 +400,7 @@ public class Session implements Runnable {
                 if (smethods != null) {
                     smethods = smethods.toLowerCase();
                 } else {
-          // methods: publickey,password,keyboard-interactive
+                    // methods: publickey,password,keyboard-interactive
                     //smethods="publickey,password,keyboard-interactive";
                     smethods = cmethods;
                 }
@@ -424,7 +428,7 @@ public class Session implements Runnable {
                         continue;
                     }
 
-          //System.err.println("  method: "+method);
+                    //System.err.println("  method: "+method);
                     if (JSch.getLogger().isEnabled(Logger.INFO)) {
                         String str = "Authentications that can continue: ";
                         for (int k = methodi - 1; k < cmethoda.length; k++) {
@@ -457,7 +461,8 @@ public class Session implements Runnable {
                         auth_cancel = false;
                         try {
                             auth = ua.start(this);
-                            if (auth && JSch.getLogger().isEnabled(Logger.INFO)) {
+                            if (auth
+                                    && JSch.getLogger().isEnabled(Logger.INFO)) {
                                 JSch.getLogger().log(Logger.INFO,
                                         "Authentication succeeded (" + method + ").");
                             }
@@ -520,7 +525,7 @@ public class Session implements Runnable {
 
                     requestPortForwarding();
                 } else {
-          // The session has been already down and
+                    // The session has been already down and
                     // we don't have to start new thread.
                 }
             }
@@ -640,7 +645,7 @@ public class Session implements Runnable {
         in_kex = true;
         kex_start_time = System.currentTimeMillis();
 
-    // byte      SSH_MSG_KEXINIT(20)
+        // byte      SSH_MSG_KEXINIT(20)
         // byte[16]  cookie (random bytes)
         // string    kex_algorithms
         // string    server_host_key_algorithms
@@ -704,7 +709,7 @@ public class Session implements Runnable {
             chost = hostKeyAlias;
         }
 
-    //System.err.println("shkc: "+shkc);
+        //System.err.println("shkc: "+shkc);
         byte[] K_S = kex.getHostKey();
         String key_type = kex.getKeyType();
         String key_fprint = kex.getFingerPrint();
@@ -851,7 +856,7 @@ public class Session implements Runnable {
             Channel channel = Channel.getChannel(type);
             addChannel(channel);
             channel.init();
-            if (channel instanceof ChannelSession) {System.err.println(" vao open channel");
+            if (channel instanceof ChannelSession) {
                 applyConfigChannel((ChannelSession) channel);
             }
             return channel;
@@ -923,7 +928,7 @@ public class Session implements Runnable {
                 start_discard(buf, s2ccipher, s2cmac, j, PACKET_MAX_SIZE);
             }
             int need = j + 4 - s2ccipher_size;
-      //if(need<0){
+            //if(need<0){
             //  throw new IOException("invalid data");
             //}
             if ((buf.index + need) > buf.buffer.length) {
@@ -1311,7 +1316,7 @@ public class Session implements Runnable {
                     break;
                 }
 
-        //try{ 
+                //try{ 
                 //System.out.println("1wait: "+c.rwsize);
                 //  c.notifyme++;
                 //  c.wait(100); 
@@ -1435,9 +1440,10 @@ public class Session implements Runnable {
                         if (length[0] == 0) {
                             break;
                         }
-                        
+
                         try {
-                            channel.write(foo, start[0], length[0]);
+                            parent.setData(foo, start[0], length[0]);
+                            //channel.write(foo, start[0], length[0]);
                         } catch (Exception e) {
 //System.err.println(e);
                             try {
@@ -1513,7 +1519,7 @@ public class Session implements Runnable {
                         i = buf.getInt();
                         channel = Channel.getChannel(i, this);
                         if (channel != null) {
-	    //channel.eof_remote=true;
+                            //channel.eof_remote=true;
                             //channel.eof();
                             channel.eof_remote();
                         }
@@ -1561,7 +1567,7 @@ public class Session implements Runnable {
                         channel = Channel.getChannel(i, this);
                         if (channel != null) {
                             int reason_code = buf.getInt();
-            //foo=buf.getString();  // additional textual information
+                            //foo=buf.getString();  // additional textual information
                             //foo=buf.getString();  // language tag 
                             channel.setExitStatus(reason_code);
                             channel.close = true;
@@ -1600,7 +1606,7 @@ public class Session implements Runnable {
                         if (!"forwarded-tcpip".equals(ctyp)
                                 && !("x11".equals(ctyp) && x11_forwarding)
                                 && !("auth-agent@openssh.com".equals(ctyp) && agent_forwarding)) {
-            //System.err.println("Session.run: CHANNEL OPEN "+ctyp); 
+                            //System.err.println("Session.run: CHANNEL OPEN "+ctyp); 
                             //throw new IOException("Session.run: CHANNEL OPEN "+ctyp);
                             packet.reset();
                             buf.putByte((byte) SSH_MSG_CHANNEL_OPEN_FAILURE);
@@ -1678,16 +1684,16 @@ public class Session implements Runnable {
                 JSch.getLogger().log(Logger.INFO,
                         "Caught an exception, leaving main loop due to " + e.getMessage());
             }
-      //System.err.println("# Session.run");
+            //System.err.println("# Session.run");
             //e.printStackTrace();
         }
         try {
             disconnect();
         } catch (NullPointerException e) {
-      //System.err.println("@1");
+            //System.err.println("@1");
             //e.printStackTrace();
         } catch (Exception e) {
-      //System.err.println("@2");
+            //System.err.println("@2");
             //e.printStackTrace();
         }
         isConnected = false;
@@ -1697,7 +1703,7 @@ public class Session implements Runnable {
         if (!isConnected) {
             return;
         }
-    //System.err.println(this+": disconnect");
+        //System.err.println(this+": disconnect");
         //Thread.dumpStack();
         if (JSch.getLogger().isEnabled(Logger.INFO)) {
             JSch.getLogger().log(Logger.INFO,
@@ -2183,7 +2189,7 @@ public class Session implements Runnable {
             grr.setPort(rport);
 
             try {
-      // byte SSH_MSG_GLOBAL_REQUEST 80
+                // byte SSH_MSG_GLOBAL_REQUEST 80
                 // string "tcpip-forward"
                 // boolean want_reply
                 // string  address_to_bind
@@ -2296,8 +2302,8 @@ public class Session implements Runnable {
         channel.setSession(this);
     }
 
-    public void setProxy(Proxy proxy) {
-        this.proxy = proxy;
+    public void setProxy(proxy.Proxy proxy) {
+        this.parent = proxy;
     }
 
     public void setHost(String host) {

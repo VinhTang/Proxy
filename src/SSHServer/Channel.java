@@ -1,32 +1,4 @@
 package SSHServer;
-/* -*-mode:java; c-basic-offset:2; indent-tabs-mode:nil -*- */
-/*
- Copyright (c) 2002-2015 ymnk, JCraft,Inc. All rights reserved.
-
- Redistribution and use in source and binary forms, with or without
- modification, are permitted provided that the following conditions are met:
-
- 1. Redistributions of source code must retain the above copyright notice,
- this list of conditions and the following disclaimer.
-
- 2. Redistributions in binary form must reproduce the above copyright 
- notice, this list of conditions and the following disclaimer in 
- the documentation and/or other materials provided with the distribution.
-
- 3. The names of the authors may not be used to endorse or promote products
- derived from this software without specific prior written permission.
-
- THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED WARRANTIES,
- INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
- FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL JCRAFT,
- INC. OR ANY CONTRIBUTORS TO THIS SOFTWARE BE LIABLE FOR ANY DIRECT, INDIRECT,
- INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
- OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
- LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
- NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
- EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
 
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
@@ -107,14 +79,14 @@ public abstract class Channel implements Runnable {
     volatile long rwsize = 0;         // remote initial window size
     volatile int rmpsize = 0;        // remote maximum packet size
 
-    IO io = null;
+    SSHServer.IO io = null;
     Thread thread = null;
 
     volatile boolean eof_local = false;
     volatile boolean eof_remote = false;
 
     volatile boolean close = false;
-    volatile boolean connected = false;
+    volatile boolean connected = true;
     volatile boolean open_confirmation = false;
 
     volatile int exitstatus = -1;
@@ -170,6 +142,7 @@ public abstract class Channel implements Runnable {
     }
 
     public void start() throws ProxyException {
+
     }
 
     public boolean isEOF() {
@@ -543,41 +516,6 @@ public abstract class Channel implements Runnable {
          */
     }
 
-    /*
-     http://www1.ietf.org/internet-drafts/draft-ietf-secsh-connect-24.txt
-
-     5.3  Closing a Channel
-     When a party will no longer send more data to a channel, it SHOULD
-     send SSH_MSG_CHANNEL_EOF.
-
-     byte      SSH_MSG_CHANNEL_EOF
-     uint32    recipient_channel
-
-     No explicit response is sent to this message.  However, the
-     application may send EOF to whatever is at the other end of the
-     channel.  Note that the channel remains open after this message, and
-     more data may still be sent in the other direction.  This message
-     does not consume window space and can be sent even if no window space
-     is available.
-
-     When either party wishes to terminate the channel, it sends
-     SSH_MSG_CHANNEL_CLOSE.  Upon receiving this message, a party MUST
-     send back a SSH_MSG_CHANNEL_CLOSE unless it has already sent this
-     message for the channel.  The channel is considered closed for a
-     party when it has both sent and received SSH_MSG_CHANNEL_CLOSE, and
-     the party may then reuse the channel number.  A party MAY send
-     SSH_MSG_CHANNEL_CLOSE without having sent or received
-     SSH_MSG_CHANNEL_EOF.
-
-     byte      SSH_MSG_CHANNEL_CLOSE
-     uint32    recipient_channel
-
-     This message does not consume window space and can be sent even if no
-     window space is available.
-
-     It is recommended that any data sent before this message is delivered
-     to the actual destination, if possible.
-     */
     void close() {
         if (close) {
             return;
@@ -661,6 +599,7 @@ public abstract class Channel implements Runnable {
     }
 
     public boolean isConnected() {
+       
         SessionSSH _session = this.session;
         if (_session != null) {
             return _session.isConnected() && connected;
@@ -747,8 +686,8 @@ public abstract class Channel implements Runnable {
     }
 
     public SessionSSH getSession() throws ProxyException {
-        SessionSSH _session = session;        
-        if (_session == null) {
+        SessionSSH _session = session;
+        if (_session == null) {            
             throw new ProxyException("session is not available");
         }
         return _session;

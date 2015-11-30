@@ -48,6 +48,8 @@ class ChannelSession extends Channel {
     protected int thp = 480;
     protected byte[] terminal_mode = null;
 
+    public proxy.Proxy parent;
+
     ChannelSession() {
         super();
         type = _session;
@@ -194,36 +196,7 @@ class ChannelSession extends Channel {
     protected void sendRequests() throws Exception {
         SessionSSH _session = getSession();
         Request request;
-//        if (agent_forwarding) {
-//            request = new RequestAgentForwarding();
-//            request.request(_session, this);
-//        }
-//
-//        if (xforwading) {
-//            request = new RequestX11();
-//            request.request(_session, this);
-//        }
-//
-//        if (pty) {
-//            request = new RequestPtyReq();
-//            ((RequestPtyReq) request).setTType(ttype);
-//            ((RequestPtyReq) request).setTSize(tcol, trow, twp, thp);
-//            if (terminal_mode != null) {
-//                ((RequestPtyReq) request).setTerminalMode(terminal_mode);
-//            }
-//            request.request(_session, this);
-//        }
 
-//        if (env != null) {
-//            for (Enumeration _env = env.keys(); _env.hasMoreElements();) {
-//                Object name = _env.nextElement();
-//                Object value = env.get(name);
-//                request = new RequestEnv();
-//                ((RequestEnv) request).setEnv(toByteArray(name),
-//                        toByteArray(value));
-//                request.request(_session, this);
-//            }
-//        }
     }
 
     private byte[] toByteArray(Object o) {
@@ -234,21 +207,32 @@ class ChannelSession extends Channel {
     }
 
     public void run() {
-       // System.err.println(this+":run >");
 
+        System.err.println("vao run " + rmpsize);
         Buffer buf = new Buffer(rmpsize);
         Packet packet = new Packet(buf);
         int i = -1;
+
         try {
-        System.err.println(isConnected());
-        if(thread != null) System.err.println("ok thread");
-        if(io != null) System.err.println("ok io");
-        if(io.in != null) System.err.println("ok io.in");
-            while (isConnected() && thread != null && io != null && io.in != null) {
-                System.err.println("1543543534534534");
-                i = io.in.read(buf.buffer, 14, buf.buffer.length - 14 - SessionSSH.buffer_margin);
-                i = 7174;
-                System.err.println("2");
+            while (isConnected() && thread != null) {
+                buf.reset();
+
+                while (true) {
+                    int temp = parent.f;
+                    // System.err.println("parent.f: "+parent.f);
+                    if (temp == 1) {
+                        break;
+                    }
+                }
+
+                byte[] data = parent.getData();
+
+                System.err.println("IN ra " + proxy.Tools.byte2str(data));
+                i = data.length;
+                System.err.println("i : " + i);
+                System.arraycopy(data, 0, buf.buffer, 14, i);
+                //i = io.in.read(buf.buffer, 14, buf.buffer.length - 14 - SessionSSH.buffer_margin);
+
                 if (i == 0) {
                     continue;
                 }
@@ -259,18 +243,21 @@ class ChannelSession extends Channel {
 //                if (close) {
 //                    break;
 //                }
-                //System.out.println("write: "+i);
+                System.out.println("recipient: " + recipient);
                 packet.reset();
                 buf.putByte((byte) SessionSSH.SSH_MSG_CHANNEL_DATA);
-                buf.putInt(recipient);
+                // buf.putInt(recipient); 
+                buf.putInt(256);
+
                 buf.putInt(i);
                 buf.skip(i);
-                getSession().write(packet, this, i);
+                //getSession().write(packet, this, i);
+                getSession()._write(packet);
             }
-        
+
         } catch (Exception e) {
 //            System.err.println("# ChannelExec.run");
-//            e.printStackTrace();
+            e.printStackTrace();
         }
         Thread _thread = thread;
         if (_thread != null) {

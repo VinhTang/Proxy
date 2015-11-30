@@ -60,14 +60,13 @@ class UserAuthPassword extends UserAuth {
             // boolen    FALSE
             // string    plaintext password (ISO-10646 UTF-8)
             buf.reset();
-            System.err.println("1");
+
             buf = session.read(buf);
             command = buf.getCommand();
-            System.err.println("command : " + command);
+
             buf.getInt();
             buf.getByte();
             int i = buf.getByte();
-            System.err.println("i: " + i);
 
             username = proxy.Tools.byte2str(buf.getString());
             byte[] servicename = buf.getString();
@@ -82,16 +81,16 @@ class UserAuthPassword extends UserAuth {
             //------------------------------------------------------------------
 
             buf.reset();
-            System.err.println("3");
+
             packet.reset();
             if (Arrays.equals(Spassword, H_pass) == true) {
-                System.err.println("4");
+
                 buf.putByte((byte) SSH_MSG_USERAUTH_SUCCESS);
                 session.write(packet);
                 return true;
             } else {
                 buf.putByte((byte) SSH_MSG_USERAUTH_FAILURE);
-                System.err.println("5");
+
                 buf.putString(methodname);
                 buf.putByte((byte) 0);
                 session.write(packet);
