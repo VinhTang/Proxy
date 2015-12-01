@@ -33,8 +33,7 @@ public class Buffer {
     }
 
     public void putByte(byte[] foo) {
-        putByte(foo, 0, foo.length);
-        System.err.println("leng: 3213213123  "+ foo.length);
+        putByte(foo, 0, foo.length);        
     }
 
     public void putByte(byte[] foo, int begin, int length) {

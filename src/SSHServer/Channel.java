@@ -72,7 +72,7 @@ public abstract class Channel implements Runnable {
     int id;
     volatile int recipient = -1;
     protected byte[] type = proxy.Tools.str2byte("foo");
-    volatile int lwsize_max = 0x100000;
+    volatile int lwsize_max = 0x100;
     volatile int lwsize = lwsize_max;     // local initial window size
     volatile int lmpsize = 0x4000;     // local maximum packet size
 

@@ -9,7 +9,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.InetAddress;
-import java.net.UnknownHostException;
+
 import java.util.Properties;
 import SSHServer.HASH;
 
@@ -69,6 +69,20 @@ public class Tools {
     }
 
     ////////////////////////////////////////////////////////////////////////////
+/////////////////
+    public static String byte2str1(byte[] str, int s, int l, String encoding) {
+        try {
+            return new String(str, s, l, encoding);
+        } catch (java.io.UnsupportedEncodingException e) {
+            return new String(str, s, l);
+        }
+    }
+
+    public static String byte2str1(byte[] str) {
+        return byte2str(str, 0, str.length, "UTF-8");
+    }
+
+/////////////////    
     public static int byte2int(byte b) {
         int res = b;
         if (res < 0) {

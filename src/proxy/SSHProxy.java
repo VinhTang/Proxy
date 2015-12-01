@@ -23,7 +23,7 @@ public class SSHProxy {
     //public static int Proxy_host_port = 22;
     public static boolean UseSSHProxy = true;
     public static boolean ProxyLog = true;
-    public static boolean ClientLog = true;
+    public static boolean ClientLog = false;
     //public static Properties Prop = null;
     public Logger log;
 

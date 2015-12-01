@@ -38,10 +38,10 @@ public class ChannelShell extends ChannelSession {
     }
 
     public void start() throws ProxyException {
-        System.err.println("vao start channel shell");
+
         SessionSSH _session = getSession();
         Logs.Println(proxy.Logger.DEBUG, "_session: " + _session);
-        
+
 //        if (io.in != null) {
         thread = new Thread(this);
         thread.setName("Shell for host (thieu cai nay)");
@@ -55,7 +55,7 @@ public class ChannelShell extends ChannelSession {
 
     void init() throws ProxyException {
         try {
-            System.err.println("init channel shell");
+
             io.setInputStream(getSession().in);
             io.setOutputStream(getSession().out);
             parent = getSession().parent;

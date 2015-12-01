@@ -15,6 +15,7 @@ import java.util.Random;
 import proxy.Logs;
 import proxy.Proxy;
 import proxy.Tools;
+import sun.nio.ch.Util;
 
 /**
  *
@@ -103,7 +104,7 @@ public class SessionSSH implements Runnable {
     private volatile boolean isAuthed = false;
 
     private Thread connectThread = null;
-    private Object lock = new Object();
+    //private final Object parent  = null;
 
     private java.util.Hashtable config = null;
 
@@ -153,14 +154,14 @@ public class SessionSSH implements Runnable {
 ////////////////////////////////////////////////////////////////////////////////
 
     public SessionSSH(Proxy proxy) {
-        this.lock = this;
-        parent = proxy;
+        this.parent = proxy;
+        //parent = proxy;
         io = new IO();
     }
 //------------------------------------------------------------------------------
 
     private void setStream() {
-        synchronized (lock) {
+        synchronized (parent) {
             try {
                 in = parent.ClientInput;
                 io.setInputStream(in);
@@ -480,7 +481,7 @@ public class SessionSSH implements Runnable {
             }
 
             firstcheck = true;
-            synchronized (lock) {
+            synchronized (parent) {
                 if (isConnected) {
                     connectThread = new Thread(this);
                     connectThread.setName("Connect thread "/* + host + " session"*/);
@@ -543,7 +544,7 @@ public class SessionSSH implements Runnable {
 
         long rwps = 0;
         int rmpsize = 0;
-        
+
         msgType = SSH_MSG_CHANNEL_OPEN;
         firstcheck = false;
         try {
@@ -570,7 +571,9 @@ public class SessionSSH implements Runnable {
                             addChannel(channel);
                             channel.getData(buf);
                             channel.init();
-                            System.err.println("receipereL (OPEN):"+ channel.getRecipient());
+
+                            recipientchannel = channel.getRecipient();
+                            System.err.println("recipientchannel: " + recipientchannel);
 //                            Thread tmp = new Thread(channel);
 //                            tmp.setName("Channel (SSH_OPEN) " + ctyp);
 //                            if (daemon_thread) {
@@ -588,7 +591,7 @@ public class SessionSSH implements Runnable {
                         buf.getInt();
                         buf.getByte();
                         buf.getByte();
-                        recipientchannel = buf.getInt();
+                        buf.getInt();//recipientchannel
                         channel = Channel.getChannel(i, this);
                         foo = buf.getString(start, length);
                         if (channel == null) {
@@ -597,9 +600,11 @@ public class SessionSSH implements Runnable {
                         if (length[0] == 0) {
                             break;
                         }
-
+                        
+                        
                         try {
-                            channel.write(foo, start[0], length[0]);
+
+                          //  channel.write(foo, start[0], length[0]);
                         } catch (Exception e) {
 //System.err.println(e);
                             try {
@@ -660,17 +665,21 @@ public class SessionSSH implements Runnable {
                         //      uint32    initial window size
                         //      uint32    maximum packet size
                         //      ....      channel type specific data follows
+                        System.err.println("intital wsL " + channel.rwsize);
+                        System.err.println("intital packetsize " + channel.rmpsize);
                         buf.reset();
                         packet.reset();
                         buf.putByte((byte) SSH_MSG_CHANNEL_OPEN_CONFIRMATION);
                         //System.err.println("confirm: " + channel.getRecipient());
-                        
-                        buf.putInt(channel.getRecipient()); //recipient channel 
-                        buf.putInt(senderchannel); //sender channel
-                        rwps = channel.rmpsize;
-                        rmpsize = channel.rmpsize;
-                        buf.putInt((int) channel.rwsize);
-                        buf.putInt(channel.rmpsize);
+
+                        buf.putInt(recipientchannel); //recipient channel 
+                        buf.putInt(0); //sender channel
+                        rwps = channel.lwsize;
+                        System.err.println("rwps: " + rwps);
+                        rmpsize = channel.lmpsize;
+                        System.err.println("rmpsize: " + rmpsize);
+                        buf.putInt((int) rwps);
+                        buf.putInt(rmpsize);
                         write(packet);
                         break;
 
@@ -689,52 +698,60 @@ public class SessionSSH implements Runnable {
                             channel.setRecipient(0);
                         }
                         break;
+                    case SSH_MSG_CHANNEL_WINDOW_ADJUST:
+                        buf.getInt();
+                        buf.getShort();
+                        i = buf.getInt();
+                        channel = Channel.getChannel(i, this);
+                        if (channel == null) {
+                            break;
+                        }
+                        channel.addRemoteWindowSize(buf.getUInt());
+                        break;
                     case SSH_MSG_CHANNEL_REQUEST:
                         buf.getInt();
                         buf.getShort();
-                        recipientchannel = buf.getInt();  System.err.println("request (recipient) "+ recipientchannel);
+                        buf.getInt(); //sender
+
                         foo = buf.getString();
                         boolean reply = (buf.getByte() != 0);
-
+                        System.err.println("foo: " + Tools.byte2str(foo));
                         if (channel != null && Tools.byte2str(foo).equals("shell")) {
 
+                            buf.reset();
                             packet.reset();
                             buf.putByte((byte) SSH_MSG_CHANNEL_SUCCESS);
-                            buf.putInt(channel.getRecipient());
+                            buf.putInt(recipientchannel);
+                            write(packet);
+
+                            rwps = 0x2000;
+                            buf.reset();
+                            packet.reset();
+                            buf.putByte((byte) SSH_MSG_CHANNEL_WINDOW_ADJUST);
+                            buf.putInt(recipientchannel);
+                            buf.putInt((int) rwps);
+                            write(packet);
+//  
+
+                            buf.reset();
+                            packet.reset();
+                            buf.putByte((byte) SSH_MSG_CHANNEL_SUCCESS);
+                            buf.putInt(recipientchannel);
                             write(packet);
                             // chi mo kenh sell
-                            channel = Channel.getChannel(recipientchannel, this);
-                            
-                            channel = openChannel("shell");
+//                             channel = Channel.getChannel(recipientchannel, this);                            
+                            channel = Channel.getChannel("shell");
+                            addChannel(channel);
+
                             channel.setRecipient(recipientchannel);
                             channel.setRemoteWindowSize(rwps);
                             channel.setRemotePacketSize(rmpsize);
+                            channel.init();
                             channel.start();
                         } else {
-                        }
-//                        buf.getInt();
-//                        buf.getShort();
-//                        i = buf.getInt();
-//                        foo = buf.getString();
-//                        boolean reply = (buf.getByte() != 0);
-//                        channel = Channel.getChannel(i, this);
-//                        if (channel != null) {
-//                            byte reply_type = (byte) SSH_MSG_CHANNEL_FAILURE;
-//                            if ((Tools.byte2str(foo)).equals("exit-status")) {
-//                                i = buf.getInt();             // exit-status
-//                                channel.setExitStatus(i);
-//                            }
-//                            reply_type = (byte) SSH_MSG_CHANNEL_SUCCESS;
-//
-//                            if (reply) {
-//                                packet.reset();
-//                                buf.putByte(reply_type);
-//                                buf.putInt(channel.getRecipient());
-//                                write(packet);
-//                            }
-//                        } else {
-//                        }
+                        }//                        
                         break;
+
                     case SSH_MSG_CHANNEL_SUCCESS:
                         buf.getInt();
                         buf.getShort();
@@ -972,7 +989,7 @@ public class SessionSSH implements Runnable {
 
         isConnected = false;
 
-        synchronized (lock) {
+        synchronized (parent) {
             if (connectThread != null) {
                 Thread.yield();
                 connectThread.interrupt();
@@ -1293,7 +1310,7 @@ public class SessionSSH implements Runnable {
 
     //-----------------------------------------------------
     public void _write(Packet packet) throws Exception {
-        synchronized (lock) {
+        synchronized (parent) {
             encode(packet);
             if (io != null) {
                 io.put(packet);
@@ -1415,16 +1432,15 @@ public class SessionSSH implements Runnable {
                  " "+Util.byte2str(message)+
                  " "+Util.byte2str(language_tag));
                  */
-                //}
-//            else if (type == SSH_MSG_CHANNEL_WINDOW_ADJUST) {
-//                buf.rewind();
-//                buf.getInt();
-//                buf.getShort();
-//                Channel c = Channel.getChannel(buf.getInt(), this);
-//                if (c == null) {
-//                } else {
-//                    c.addRemoteWindowSize(buf.getUInt());
-//                }
+            } else if (type == SSH_MSG_CHANNEL_WINDOW_ADJUST) {
+                buf.rewind();
+                buf.getInt();
+                buf.getShort();
+                Channel c = Channel.getChannel(buf.getInt(), this);
+                if (c == null) {
+                } else {
+                    c.addRemoteWindowSize(buf.getUInt());
+                }
             } else if (type == UserAuth.SSH_MSG_USERAUTH_SUCCESS) {
                 isAuthed = true;
                 if (inflater == null && deflater == null) {

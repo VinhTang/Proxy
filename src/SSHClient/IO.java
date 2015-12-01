@@ -60,8 +60,7 @@ public class IO{
     out.write(p.buffer.buffer, 0, p.buffer.index);
     out.flush();
   }
-  void put(byte[] array, int begin, int length) throws IOException {
-   
+  void put(byte[] array, int begin, int length) throws IOException {   
           
     out.write(array, begin, length);
     out.flush();

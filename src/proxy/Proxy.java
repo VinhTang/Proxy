@@ -7,8 +7,6 @@ package proxy;
 
 import SSHClient.JSch;
 import SSHClient.JSchException;
-import SSHServer.Buffer;
-import SSHServer.Packet;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,6 +15,8 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketException;
 import SSHServer.SessionSSH;
+import java.util.LinkedList;
+import java.util.Queue;
 
 /**
  *
@@ -90,9 +90,9 @@ public class Proxy extends Thread {
         return this;
     }
 
-    public SSHServer.Buffer buf;
-    ////////////////////////////////////////////////////////////////////////////
+    public static volatile Queue queue;
 
+    ////////////////////////////////////////////////////////////////////////////
     public Proxy(SOCKServer SockServer, Socket ClientSocket, boolean fLog) {
 
         bucket = this;
@@ -113,7 +113,7 @@ public class Proxy extends Thread {
                 Logs.Println(Logger.ERROR, "Socket Exception during seting Timeout.");
             }
         }
-        buf = new SSHServer.Buffer();
+
         Logs.Println(Logger.INFO, "Proxy Created!");
     }
 
@@ -141,7 +141,9 @@ public class Proxy extends Thread {
     ////////////////////////////////////////////////////////////////////////////
     @Override
     public void run() {
+
         Logs.Println(Logger.INFO, "Proxy start!");
+        queue = new LinkedList();
 
         setBucket(this);
         if (!PrepareClient()) {
@@ -192,10 +194,10 @@ public class Proxy extends Thread {
                 case SOCK4.SC_CONNECT:
                     communicator.Reply_Connect();  // equal Connect()
                     //create SSH Trans
-                    
+
                     ServerSide.Connect();
                     createClientSide();
-                    createClientSide();
+
                     Relay();
             }
         } catch (Exception e) {
@@ -213,22 +215,31 @@ public class Proxy extends Thread {
     public static byte[] data;
 
     //---------------------------------
-    public void intData(int size) {
-        data = new byte[size];
-    }
+//    public void intData(int size) {
+//        data = new byte[size];
+//    }
     public static volatile int f = -1;
 
-    public void setData(byte[] foo, int start, int length) {
-        f = 1;
-        intData(length);
-        System.arraycopy(foo, start, data, 0, length);
-
-//       System.err.println("data :" + Tools.byte2str(data));
+    // set data f =2
+    // get data f =1
+    // free f = 0
+    public void setData(byte[] foo, int start, int length) throws InterruptedException {
+        data = new byte[length];
+        System.arraycopy(foo, start, data, 0, length);        
+        queue.add(data);
     }
 
-    public byte[] getData() {
+    public static boolean checkData() {
+        if (queue.isEmpty() == true) {
+            return false;
+        } else {
+            return true;
+        }
+    }
 
-        System.err.println("i data proxy " + data.length);
+    public static byte[] getData() throws InterruptedException {
+        data = (byte[]) queue.remove();
+        System.err.println("test get Data " + data.length + " = " + Tools.byte2str1(data));
         return data;
     }
 
@@ -326,31 +337,5 @@ public class Proxy extends Thread {
     }
     //-------------------------------------------
 
-    ////////////////////////////////////////////////////////////////////////////
-    //---------------------------------------
-//    public void ConnectToServer(String ServerHost, int ServerPort) throws IOException {
-//        //	Connect to the Remote Host
-//
-//        if (ServerHost.equals("")) {
-//            Close();
-//            Logs.Println(Logger.ERROR, "Invalid Remote Host Name - Empty String !!!");
-//            return;
-//        }
-//
-//        ServerSocket = new Socket(ServerHost, ServerPort);
-//        ServerSocket.setSoTimeout(DEFAULT_TIMEOUT);
-//
-//        Logs.Println(Logger.INFO, "Connected to " + Logs.getSocketInfo(ServerSocket));
-//        PrepareServer(); // prepare Stream for Server
-//
-//    }
-//
-//    //---------------------------------------
-//    private void PrepareServer() throws IOException {
-//        synchronized (bucket) {
-//            ServerInput = ServerSocket.getInputStream();
-//            ServerOutput = ServerSocket.getOutputStream();
-//        }
-//    }
     ////////////////////////////////////////////////////////////////////////////
 }

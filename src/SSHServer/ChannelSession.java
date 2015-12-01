@@ -208,28 +208,27 @@ class ChannelSession extends Channel {
 
     public void run() {
 
-        System.err.println("vao run " + rmpsize);
         Buffer buf = new Buffer(rmpsize);
         Packet packet = new Packet(buf);
-        int i = -1;
+        int i;
 
         try {
             while (isConnected() && thread != null) {
                 buf.reset();
 
                 while (true) {
-                    int temp = parent.f;
-                    // System.err.println("parent.f: "+parent.f);
-                    if (temp == 1) {
+                    boolean temp = parent.checkData();
+                    if (temp == true) {
                         break;
                     }
+                    Thread.sleep(1000);
                 }
 
                 byte[] data = parent.getData();
-
-                System.err.println("IN ra " + proxy.Tools.byte2str(data));
                 i = data.length;
-                System.err.println("i : " + i);
+                System.err.println("IN ra:::: chieu dai  " + i + " !--- " + Tools.byte2str1(data));
+
+                
                 System.arraycopy(data, 0, buf.buffer, 14, i);
                 //i = io.in.read(buf.buffer, 14, buf.buffer.length - 14 - SessionSSH.buffer_margin);
 
@@ -243,14 +242,16 @@ class ChannelSession extends Channel {
 //                if (close) {
 //                    break;
 //                }
-                System.out.println("recipient: " + recipient);
+
+                //ystem.out.println("recipient:::::::: " + recipient);
                 packet.reset();
                 buf.putByte((byte) SessionSSH.SSH_MSG_CHANNEL_DATA);
                 // buf.putInt(recipient); 
-                buf.putInt(256);
-
+                buf.putInt(recipient);
+                buf.putString(data);
                 buf.putInt(i);
-                buf.skip(i);
+                buf.skip(i);               
+
                 //getSession().write(packet, this, i);
                 getSession()._write(packet);
             }
