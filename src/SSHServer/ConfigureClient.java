@@ -5,15 +5,12 @@
  */
 package SSHServer;
 
-import java.io.InputStream;
-import java.util.Vector;
-
-public class Configure {
-
-    /**
-     * The version number.
-     */
-    public static final String VERSION = "0.1.53";
+/**
+ *
+ * @author Milky_Way
+ */
+public class ConfigureClient {
+        public static final String VERSION = "0.1.53";
 
     static java.util.Hashtable config = new java.util.Hashtable();
 
@@ -46,15 +43,10 @@ public class Configure {
 
         config.put("compression_level", "6");
 
-        config.put("diffie-hellman-group-exchange-sha1",
-                "SSHServer.DHGEX");
+
         config.put("diffie-hellman-group1-sha1",
-                "SSHServer.DHG1");
-        config.put("diffie-hellman-group14-sha1",
-                "SSHServer.DHG14");    // available since JDK8.
-        config.put("diffie-hellman-group-exchange-sha256",
-                "SSHServer.DHGEX256"); // available since JDK1.4.2.
-        // On JDK8, 2048bits will be used.
+                "SSHServer.DHG1linux");
+        
         config.put("ecdsa-sha2-nistp256", "SSHServer.jce.SignatureECDSA");
         config.put("ecdsa-sha2-nistp384", "SSHServer.jce.SignatureECDSA");
         config.put("ecdsa-sha2-nistp521", "SSHServer.jce.SignatureECDSA");
@@ -103,12 +95,9 @@ public class Configure {
         config.put("arcfour128", "SSHServer.jce.ARCFOUR128");
         config.put("arcfour256", "SSHServer.jce.ARCFOUR256");
 
-        config.put("userauth.none", "SSHServer.UserAuthNone");
         config.put("userauthlinux.none", "SSHServer.UserAuthNonelinux");
-        config.put("userauth.password", "SSHServer.UserAuthPassword");
-        config.put("userauth.keyboard-interactive", "SSHServer.UserAuthKeyboardInteractive");
-        config.put("userauth.publickey", "SSHServer.UserAuthPublicKey");
-        config.put("userauth.gssapi-with-mic", "SSHServer.UserAuthGSSAPIWithMIC");
+        config.put("userauthlinux.password", "SSHServer.UserAuthPasswordlinux");
+        
         config.put("gssapi-with-mic.krb5", "SSHServer.jgss.GSSContextKrb5");
 
         config.put("zlib", "SSHServer.jcraft.Compression");
@@ -186,6 +175,8 @@ public class Configure {
     
     private static ConfigRepository configRepository = null;
     public static ConfigRepository getConfigRepository() {
-        return Configure.configRepository;
+        return ConfigureClient.configRepository;
     }
 }
+
+

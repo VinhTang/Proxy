@@ -19,7 +19,7 @@ class RequestWindowChange extends Request {
         this.height_pixels = hp;
     }
 
-    public void request(SessionSSH session, Channel channel) throws Exception {
+    public void request(sshServer session, Channel channel) throws Exception {
         super.request(session, channel);
 
         Buffer buf = new Buffer();
@@ -34,7 +34,7 @@ class RequestWindowChange extends Request {
         //uint32    terminal width, pixels
         //uint32    terminal height, pixels
         packet.reset();
-        buf.putByte((byte) SessionSSH.SSH_MSG_CHANNEL_REQUEST);
+        buf.putByte((byte) sshServer.SSH_MSG_CHANNEL_REQUEST);
         buf.putInt(channel.getRecipient());
         buf.putString(proxy.Tools.str2byte("window-change"));
         buf.putByte((byte) (waitForReply() ? 1 : 0));

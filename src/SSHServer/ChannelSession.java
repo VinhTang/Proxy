@@ -194,7 +194,7 @@ class ChannelSession extends Channel {
 
     // no use
     protected void sendRequests() throws Exception {
-        SessionSSH _session = getSession();
+        sshServer _session = getSession();
         Request request;
 
     }
@@ -212,60 +212,7 @@ class ChannelSession extends Channel {
         Packet packet = new Packet(buf);
         int i;
 
-        try {
-            while (isConnected() && thread != null) {
-                buf.reset();
-
-                while (true) {
-                    boolean temp = parent.checkData();
-                    if (temp == true) {
-                        break;
-                    }
-                    Thread.sleep(1000);
-                }
-
-                byte[] data = parent.getData();
-                i = data.length;
-                System.err.println("IN ra:::: chieu dai  " + i + " !--- " + Tools.byte2str1(data));
-
-                
-                System.arraycopy(data, 0, buf.buffer, 14, i);
-                //i = io.in.read(buf.buffer, 14, buf.buffer.length - 14 - SessionSSH.buffer_margin);
-
-                if (i == 0) {
-                    continue;
-                }
-                if (i == -1) {
-                    eof();
-                    break;
-                }
-//                if (close) {
-//                    break;
-//                }
-
-                //ystem.out.println("recipient:::::::: " + recipient);
-                packet.reset();
-                buf.putByte((byte) SessionSSH.SSH_MSG_CHANNEL_DATA);
-                // buf.putInt(recipient); 
-                buf.putInt(recipient);
-                buf.putString(data);
-                buf.putInt(i);
-                buf.skip(i);               
-
-                //getSession().write(packet, this, i);
-                getSession()._write(packet);
-            }
-
-        } catch (Exception e) {
-//            System.err.println("# ChannelExec.run");
-            e.printStackTrace();
-        }
-        Thread _thread = thread;
-        if (_thread != null) {
-            synchronized (_thread) {
-                _thread.notifyAll();
-            }
-        }
+        
         thread = null;
         //System.err.println(this+":run <");
     }

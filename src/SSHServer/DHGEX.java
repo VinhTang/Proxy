@@ -34,7 +34,7 @@ public class DHGEX extends KeyExchange {
 
     protected String hash = "sha-1";
 
-    public void init(SessionSSH session,
+    public void init(sshServer session,
             byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws Exception {
         this.session = session;
         this.V_S = V_S;
@@ -219,4 +219,6 @@ public class DHGEX extends KeyExchange {
         }
         return _max;
     }
+
+  
 }

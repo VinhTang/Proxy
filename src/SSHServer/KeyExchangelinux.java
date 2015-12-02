@@ -1,6 +1,11 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
 package SSHServer;
 
-public abstract class KeyExchange {
+public abstract class KeyExchangelinux {
 
     static final int PROPOSAL_KEX_ALGS = 0;
     static final int PROPOSAL_SERVER_HOST_KEY_ALGS = 1;
@@ -31,16 +36,14 @@ public abstract class KeyExchange {
 
     public static final int STATE_END = 0;
 
-    protected sshServer session = null;
     protected sshLinux sessionlinux = null;
     protected HASH sha = null;
     protected byte[] K = null;
     protected byte[] H = null;
     protected byte[] K_S = null;
 
-    public abstract void init(sshServer session,
+    public abstract void init(sshLinux sessionlinux,
             byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws Exception;
-
 
     public abstract boolean next(Buffer buf) throws Exception;
 
@@ -145,7 +148,7 @@ public abstract class KeyExchange {
     public String getFingerPrint() {
         HASH hash = null;
         try {
-            Class c = Class.forName(session.getConfig("md5"));
+            Class c = Class.forName(sessionlinux.getConfig("md5"));
             hash = (HASH) (c.newInstance());
         } catch (Exception e) {
             System.err.println("getFingerPrint: " + e);
@@ -212,14 +215,14 @@ public abstract class KeyExchange {
             System.arraycopy(K_S, i, tmp, 0, j);
             i += j;
             n = tmp;
-            System.err.println("vao");
+            
             SignatureRSA sig = null;
             try {
-                Class c = Class.forName(session.getConfig("signature.rsa"));
+                Class c = Class.forName(sessionlinux.getConfig("signature.rsa"));
                 sig = (SignatureRSA) (c.newInstance());
                 sig.init();
             } catch (Exception e) {
-                System.err.println("loi: "+e.toString());
+                System.err.println("loi: " + e.toString());
             }
             sig.setPubKey(ee, n);
             sig.update(H);
@@ -266,7 +269,7 @@ public abstract class KeyExchange {
 
             SignatureDSA sig = null;
             try {
-                Class c = Class.forName(session.getConfig("signature.dss"));
+                Class c = Class.forName(sessionlinux.getConfig("signature.dss"));
                 sig = (SignatureDSA) (c.newInstance());
                 sig.init();
             } catch (Exception e) {
@@ -310,7 +313,7 @@ public abstract class KeyExchange {
 
             SignatureECDSA sig = null;
             try {
-                Class c = Class.forName(session.getConfig("signature.ecdsa"));
+                Class c = Class.forName(sessionlinux.getConfig("signature.ecdsa"));
                 sig = (SignatureECDSA) (c.newInstance());
                 sig.init();
             } catch (Exception e) {

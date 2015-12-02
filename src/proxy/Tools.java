@@ -12,6 +12,7 @@ import java.net.InetAddress;
 
 import java.util.Properties;
 import SSHServer.HASH;
+import java.net.Socket;
 
 /**
  *
@@ -397,4 +398,61 @@ public class Tools {
         }
     }
 ////////////////////////////////////////////////////////////////////////////////
+
+    public static Socket createSocket(String host, int port, int timeout) throws SSHServer.ProxyException {
+        Socket socket = null;
+        if (timeout == 0) {
+            try {
+                socket = new Socket(host, port);
+                return socket;
+            } catch (Exception e) {
+                String message = e.toString();
+                if (e instanceof Throwable) {
+                    throw new SSHServer.ProxyException(message, (Throwable) e);
+                }
+                throw new SSHServer.ProxyException(message);
+            }
+        }
+        final String _host = host;
+        final int _port = port;
+        final Socket[] sockp = new Socket[1];
+        final Exception[] ee = new Exception[1];
+        String message = "";
+        Thread tmp = new Thread(new Runnable() {
+            public void run() {
+                sockp[0] = null;
+                try {
+                    sockp[0] = new Socket(_host, _port);
+                } catch (Exception e) {
+                    ee[0] = e;
+                    if (sockp[0] != null && sockp[0].isConnected()) {
+                        try {
+                            sockp[0].close();
+                        } catch (Exception eee) {
+                        }
+                    }
+                    sockp[0] = null;
+                }
+            }
+        });
+        tmp.setName("Opening Socket " + host);
+        tmp.start();
+        try {
+            tmp.join(timeout);
+            message = "timeout: ";
+        } catch (java.lang.InterruptedException eee) {
+        }
+        if (sockp[0] != null && sockp[0].isConnected()) {
+            socket = sockp[0];
+        } else {
+            message += "socket is not established";
+            if (ee[0] != null) {
+                message = ee[0].toString();
+            }
+            tmp.interrupt();
+            tmp = null;
+            throw new SSHServer.ProxyException(message, ee[0]);
+        }
+        return socket;
+    }
 }

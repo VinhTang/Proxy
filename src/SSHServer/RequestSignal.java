@@ -13,14 +13,14 @@ public class RequestSignal extends Request {
         signal = foo;
     }
 
-    public void request(SessionSSH session, Channel channel) throws Exception {
+    public void request(sshServer session, Channel channel) throws Exception {
         super.request(session, channel);
 
         Buffer buf = new Buffer();
         Packet packet = new Packet(buf);
 
         packet.reset();
-        buf.putByte((byte) SessionSSH.SSH_MSG_CHANNEL_REQUEST);
+        buf.putByte((byte) sshServer.SSH_MSG_CHANNEL_REQUEST);
         buf.putInt(channel.getRecipient());
         buf.putString(proxy.Tools.str2byte("signal"));
         buf.putByte((byte) (waitForReply() ? 1 : 0));

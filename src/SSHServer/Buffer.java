@@ -1,16 +1,11 @@
 package SSHServer;
 
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 public class Buffer {
 
     final byte[] tmp = new byte[4];
-    byte[] buffer;
-    int index;
-    int s;
+    public byte[] buffer;
+    public int index;
+    public int s;
 
     public Buffer(int size) {
         buffer = new byte[size];
@@ -33,7 +28,7 @@ public class Buffer {
     }
 
     public void putByte(byte[] foo) {
-        putByte(foo, 0, foo.length);        
+        putByte(foo, 0, foo.length);
     }
 
     public void putByte(byte[] foo, int begin, int length) {
@@ -73,7 +68,7 @@ public class Buffer {
         index += 8;
     }
 
-    void skip(int n) {
+    public void skip(int n) {
         index += n;
     }
 
@@ -131,7 +126,7 @@ public class Buffer {
         return foo;
     }
 
-    int getShort() {
+    public int getShort() {
         int foo = getByte();
         foo = ((foo << 8) & 0xff00) | (getByte() & 0xff);
         return foo;
@@ -145,7 +140,7 @@ public class Buffer {
         getByte(foo, 0, foo.length);
     }
 
-    void getByte(byte[] foo, int start, int len) {
+    public void getByte(byte[] foo, int start, int len) {
         System.arraycopy(buffer, s, foo, start, len);
         s += len;
     }
@@ -215,16 +210,16 @@ public class Buffer {
         s = 0;
     }
 
-    void rewind() {
+    public void rewind() {
         s = 0;
     }
 
-    byte getCommand() {
+    public byte getCommand() {
         return buffer[5];
     }
 
-    void checkFreeSize(int n) {
-        int size = index + n + SessionSSH.buffer_margin;
+    public void checkFreeSize(int n) {
+        int size = index + n + sshServer.buffer_margin;
         if (buffer.length < size) {
             int i = buffer.length * 2;
             if (i < size) {
@@ -236,7 +231,7 @@ public class Buffer {
         }
     }
 
-    byte[][] getBytes(int n, String msg) throws ProxyException {
+    public byte[][] getBytes(int n, String msg) throws ProxyException {
         byte[][] tmp = new byte[n][];
         for (int i = 0; i < n; i++) {
             int j = getInt();
@@ -262,7 +257,7 @@ public class Buffer {
      return buf;
      }
      */
-    static Buffer fromBytes(byte[][] args) {
+    public static Buffer fromBytes(byte[][] args) {
         int length = args.length * 4;
         for (int i = 0; i < args.length; i++) {
             length += args[i].length;

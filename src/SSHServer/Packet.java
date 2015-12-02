@@ -25,8 +25,8 @@ public class Packet {
     }
 
     void padding(int bsize) {
-        int len = buffer.index;
-        int pad = (-len) & (bsize - 1);
+        int len = buffer.index; 
+        int pad = (-len) & (bsize - 1);  
         if (pad < bsize) {
             pad += bsize;
         }
@@ -93,7 +93,7 @@ public class Packet {
         buffer.index = len + 5 + 9;
     }
 
-    Buffer getBuffer() {
+    public Buffer getBuffer() {
         return buffer;
     }
 }

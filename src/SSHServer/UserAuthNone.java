@@ -10,7 +10,7 @@ class UserAuthNone extends UserAuth {
 
     private String methods = null;
 
-    public boolean start(SessionSSH session) throws Exception {
+    public boolean start(sshServer session) throws Exception {
         super.start(session);
         try {
 
@@ -58,7 +58,7 @@ class UserAuthNone extends UserAuth {
             byte[] methodsname = buf.getString();
 
             //------------------------------------------------------------------
-            //--------send Auth Method of Server (50)---------------------------
+            //--------send Auth Method of sshServer (50)---------------------------
             buf.reset();
             packet.reset();
             methods = session.GetPreferredAuthentications();

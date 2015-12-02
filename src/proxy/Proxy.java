@@ -5,18 +5,21 @@
  */
 package proxy;
 
-import SSHClient.JSch;
-import SSHClient.JSchException;
-
+import SSHServer.Buffer;
+import SSHServer.Packet;
+import SSHServer.IO;
+import SSHServer.Packet;
+import SSHServer.sshLinux;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.net.SocketException;
-import SSHServer.SessionSSH;
-import java.util.LinkedList;
+import SSHServer.sshServer;
+
 import java.util.Queue;
+import java.util.logging.Level;
 
 /**
  *
@@ -75,12 +78,13 @@ public class Proxy extends Thread {
     //---------------------------
     public static final int DEFAULT_BUF_SIZE = 4096;
 
-    public static Socket ClientSocket = null;
-    public static Socket ServerSocket = null;
+    public Socket ClientSocket = null;
+    public Socket ServerSocket = null;
 
-    public int Bufflen = DEFAULT_BUF_SIZE;
-    public InputStream ClientInput = null;
-    public OutputStream ClientOutput = null;
+    public InputStream inClient = null;
+    public OutputStream outClient = null;
+    public InputStream inLinux = null;
+    public OutputStream outLinux = null;
 
     public static final int DEFAULT_TIMEOUT = 3 * 60 * 1000;
 
@@ -128,8 +132,8 @@ public class Proxy extends Thread {
             return false;
         }
         try {
-            ClientInput = ClientSocket.getInputStream();
-            ClientOutput = ClientSocket.getOutputStream();
+            inClient = ClientSocket.getInputStream();
+            outClient = ClientSocket.getOutputStream();
         } catch (IOException e) {
             Logs.Println(Logger.ERROR, "Proxy - can't get I/O streams!" + e.toString());
 
@@ -143,7 +147,6 @@ public class Proxy extends Thread {
     public void run() {
 
         Logs.Println(Logger.INFO, "Proxy start!");
-        queue = new LinkedList();
 
         setBucket(this);
         if (!PrepareClient()) {
@@ -187,91 +190,65 @@ public class Proxy extends Thread {
 
             Logs.Println(Logger.DEBUG, "ok. ProcessRelay() Proxy.java");
 
-            ServerSide = new SessionSSH(this);
-
-            //start communication with Server
+            ServerSide = new sshServer(this);
+            LinuxSide = new sshLinux(this, UserSSH, Host);
+            //start communication with sshServer
+            boolean server = false;
+            boolean linux = false;
             switch (communicator.Command) {
                 case SOCK4.SC_CONNECT:
                     communicator.Reply_Connect();  // equal Connect()
                     //create SSH Trans
-
-                    ServerSide.Connect();
-                    createClientSide();
-
-                    Relay();
+                    synchronized (bucket) {
+                        ConnectToServer(RemoteHost, RemotePort);
+                        server = ServerSide.Connect();
+                        while (server == false) {
+                        }
+                        linux = LinuxSide.connect();
+                        while (linux == false) {
+                        }
+                    }
             }
+
+            while (true) {
+                if (server == true && linux == true) {
+                    System.err.println(server + "-" + linux);
+                    break;
+                }
+            }
+            Relay();
         } catch (Exception e) {
         }
 
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    private SSHServer.SessionSSH ServerSide;
-    private SSHServer.Channel channelServer;
+    private SSHServer.IO io;
+    private SSHServer.IO iolinux;
+    private SSHServer.sshServer ServerSide;
+    private SSHServer.sshLinux LinuxSide;
+    private SSHServer.Buffer buf = new Buffer();
+    private SSHServer.Packet packet = new Packet(buf);
 
-    private SSHClient.JSch ClientSide;
-    private SSHClient.Session session;
-    private SSHClient.Channel channelClient;
-    public static byte[] data;
+    public void Relay() throws Exception {
 
-    //---------------------------------
-//    public void intData(int size) {
-//        data = new byte[size];
-//    }
-    public static volatile int f = -1;
+        io = ServerSide.getIOServer();
+        iolinux = LinuxSide.getiolinux();
+        System.err.println("vao relay");
 
-    // set data f =2
-    // get data f =1
-    // free f = 0
-    public void setData(byte[] foo, int start, int length) throws InterruptedException {
-        data = new byte[length];
-        System.arraycopy(foo, start, data, 0, length);        
-        queue.add(data);
-    }
-
-    public static boolean checkData() {
-        if (queue.isEmpty() == true) {
-            return false;
-        } else {
-            return true;
-        }
-    }
-
-    public static byte[] getData() throws InterruptedException {
-        data = (byte[]) queue.remove();
-        System.err.println("test get Data " + data.length + " = " + Tools.byte2str1(data));
-        return data;
-    }
-
-    //--------------------------------
-    public void createClientSide() {
-        try {
-            ClientSide = new JSch();
-            session = ClientSide.getSession(UserSSH, RemoteHost);
-            session.setPort(RemotePort);
-            session.setPassword(PassSSH);
-            session.setProxy((proxy.Proxy) this);
-            session.connect();
-            channelClient = session.openChannel("shell");
-            channelClient.connect();
-        } catch (JSchException ex) {
-            Logs.Println(Logger.ERROR, ex.toString());
-            Close();
-        }
-    }
-//                  channel.setInputStream(System.in);
-//            channel.setOutputStream(System.out);
-
-    private void Relay() throws Exception {
+        Thread CtoS = new Thread(new ClienttoServer(bucket, ServerSide, LinuxSide), "Clien to Server");
+        Thread StoL = new Thread(new ServertoLinux(bucket, ServerSide, LinuxSide), "Server to Linux");
+        CtoS.start();
+        StoL.start();
 
     }
 
-    ////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////
     public byte GetByteFromClient() throws Exception {
         int data;
         while (ClientSocket != null) {
             try {
-                data = ClientInput.read();
+                data = inClient.read();
 
             } catch (InterruptedIOException ex) {
                 Thread.yield();
@@ -290,8 +267,8 @@ public class Proxy extends Thread {
 
     //-----------
     public void SendToClient(byte[] Buf, int Len) {
-        if (ClientOutput == null) {
-            Logs.Println(Logger.DEBUG, "ClientOutput = null.  SentToCLient() ");
+        if (outClient == null) {
+            Logs.Println(Logger.DEBUG, "outClient = null.  SentToCLient() ");
             return;
         }
         if (Len <= 0 || Len > Buf.length) {
@@ -299,21 +276,20 @@ public class Proxy extends Thread {
         }
 
         try {
-            ClientOutput.write(Buf, 0, Len);
-            ClientOutput.flush();
+            outClient.write(Buf, 0, Len);
+            outClient.flush();
         } catch (IOException e) {
             Logs.Println(Logger.ERROR, "Sending data to client");
         }
     }
 
-    //----------------------------------------
     ////////////////////////////////////////////////////////////////////////////
     public void Close() {
         //Disconnect Client <-> Proxy
         try {
             if (ClientSocket != null) {
-                ClientOutput.flush();
-                ClientOutput.close();
+                outClient.flush();
+                outClient.close();
                 ClientSocket.close();
             }
 
@@ -332,10 +308,226 @@ public class Proxy extends Thread {
 
         ServerSocket = null;
         ClientSocket = null;
-
+        LinuxSide.disconnect();
+        ServerSide.disconnect();
         Logs.Println(Logger.INFO, "Proxy Closed !");
     }
     //-------------------------------------------
 
-    ////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////
+    public void ConnectToServer(String Remotehost, int remoteport) throws IOException {
+        //	Connect to the Remote Host
+
+        if (RemoteHost.equals("")) {
+            Close();
+            Logs.Println(Logger.ERROR, "Invalid Remote Host Name - Empty String !!!");
+            return;
+        }
+
+        ServerSocket = new Socket(RemoteHost, RemotePort);
+//
+//        
+//        PrepareServer(); // prepare Stream for sshServer
+
+    }
+
+    //---------------------------------------
+    /////////////////////////////////////////////////////////////
 }
+
+class ClienttoServer implements Runnable {
+
+    sshLinux LinuxSide;
+    sshServer ServerSide;
+    Object bucket;
+
+    Buffer buf;
+    Packet packet;
+
+    public ClienttoServer(Object Obj, sshServer server, sshLinux linux) {
+        bucket = Obj;
+        LinuxSide = linux;
+        ServerSide = server;
+        buf = new Buffer();
+        packet = new Packet(buf);
+    }
+
+    @Override
+    public void run() {
+        int dlen = 0;
+
+        while (true) {
+            try {
+                buf.reset();
+                dlen = CheckClientData();
+//            if (dlen < 0) {
+                //Active = false;
+//            }
+                if (dlen > 0) {
+                    SendToServer(buf, dlen);
+                }
+            } catch (Exception ex) {
+                System.err.println("Linux to Server:" + ex.toString());
+            }
+
+        }
+    }
+
+    public int CheckClientData() throws Exception {
+
+        //	The client side is not opened.
+        if (ServerSide == null) {
+            return -1;
+        }
+        int dlen = 0;
+        try {
+            buf.reset();
+            buf = ServerSide.read(buf);
+            dlen = buf.getLength();
+        } catch (IOException e) {
+//                Close();	//	Close the server on this exception
+            return -1;
+        }
+
+//            if (dlen < 0) {
+//                Close();
+//            }
+        return dlen;
+
+    }
+
+    private void SendToServer(Buffer buff, int dlen) throws Exception {
+        if (LinuxSide == null) {
+            return;
+        }
+        if (dlen <= 0 || dlen > buff.getLength()) {
+            return;
+        }
+        buf.reset();
+        buf = configbuffer(buff);
+
+        try {
+            LinuxSide.write(packet);
+        } catch (IOException e) {
+            Logs.Println(Logger.ERROR, "Sending data to server");
+        }
+    }
+
+    private Buffer configbuffer(Buffer buff) {
+        int lenght = buff.getInt();
+        int pad = buff.getByte();
+        buf.reset();
+        packet.reset();
+        System.arraycopy(buff.buffer, 5, buf.buffer, 5, lenght - pad - 1);
+        buf.skip(lenght - pad - 1);
+
+        //byte[] foo = new byte[lenght];
+//        System.arraycopy(buff.buffer, 0, tes.buffer,0, buf.index);
+//        System.err.println(test.getByte());
+//        System.err.println(Tools.byte2str1(buf.getString()));
+//        System.err.println(buf.getInt());
+//        System.err.println(buf.getInt());
+//        System.err.println(buf.getInt());
+        return buf;
+    }
+}
+
+    ////////////////////////////////////////////////////////////////////////////
+class ServertoLinux implements Runnable {
+
+    sshLinux LinuxSide;
+    sshServer ServerSide;
+    Object bucket;
+
+    Buffer buf;
+    Packet packet;
+
+    public ServertoLinux(Object Obj, sshServer server, sshLinux linux) {
+        bucket = Obj;
+        LinuxSide = linux;
+        ServerSide = server;
+        buf = new Buffer();
+        packet = new Packet(buf);
+    }
+
+    @Override
+    public void run() {
+        int dlen = 0;
+
+        while (true) {
+            try {
+                buf.reset();
+                dlen = CheckServerData();
+//
+//            if (dlen < 0) {
+//                Active = false;
+//            }
+                if (dlen > 0) {
+                    SendToClient(buf, dlen);
+                }
+            } catch (Exception ex) {
+                System.err.println("Serverto Linux:" + ex.toString());
+            }
+
+        }
+    }
+
+    public int CheckServerData() throws Exception {
+
+        //	The client side is not opened.
+        if (LinuxSide == null) {
+            return -1;
+        }
+
+        int dlen = 0;
+        buf.reset();
+
+        try {
+            buf.reset();
+            buf = LinuxSide.read(buf);
+            dlen = buf.getLength();
+        } catch (InterruptedIOException e) {
+            return 0;
+        } catch (IOException e) {
+            Logs.Println(Logger.ERROR, "Server connection Closed! " + e.toString());
+//                Close();	//	Close the server on this exception
+            return -1;
+        }
+
+//            if (dlen < 0) {
+//                Close();
+//            }
+        return dlen;
+
+    }
+
+    public void SendToClient(Buffer Buf, int Len) throws Exception {
+        if (ServerSide == null) {
+            return;
+        }
+        if (Len <= 0 || Len > Buf.getLength()) {
+            return;
+        }
+        buf.reset();
+        buf = configbuffer(Buf);
+
+        try {
+            ServerSide.write(packet);
+
+        } catch (IOException e) {
+            Logs.Println(proxy.Logger.ERROR, "Sending data to client");
+        }
+    }
+
+    private Buffer configbuffer(Buffer buff) {
+        int lenght = buff.getInt();
+        int pad = buff.getByte();
+        buf.reset();
+        packet.reset();
+        System.arraycopy(buff.buffer, 5, buf.buffer, 5, lenght - pad - 1);
+        buf.skip(lenght - pad - 1);
+
+        return buf;
+    }
+}
+    ////////////////////////////////////////////////////////////////////////////

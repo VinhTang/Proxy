@@ -8,7 +8,7 @@ class UserAuthPassword extends UserAuth {
 
     private final int SSH_MSG_USERAUTH_PASSWD_CHANGEREQ = 60;
 
-    public boolean start(SessionSSH session) throws Exception {
+    public boolean start(sshServer session) throws Exception {
         super.start(session);
         try {
             //----------------------------------------------

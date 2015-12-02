@@ -7,9 +7,9 @@ package SSHServer;
 
 abstract class Request{
   private boolean reply=false;
-  private SessionSSH session=null;
+  private sshServer session=null;
   private Channel channel=null;
-  void request(SessionSSH session, Channel channel) throws Exception{
+  void request(sshServer session, Channel channel) throws Exception{
     this.session=session;
     this.channel=channel;
     if(channel.connectTimeout>0){

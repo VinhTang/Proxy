@@ -56,7 +56,7 @@ public class DHG1 extends SSHServer.KeyExchange {
     private KeyPair keypair;
 ////////////////////////////////////////////////////////////////////////////////
 
-    public void init(SessionSSH session,
+    public void init(sshServer session,
             byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws Exception {
         this.session = session;
         this.V_S = V_S;
@@ -82,11 +82,12 @@ public class DHG1 extends SSHServer.KeyExchange {
         } catch (Exception ee) {
             proxy.Logs.Println(proxy.Logger.ERROR, ee.toString());
         }
-        
-//      keypair = KeyPair.genKeyPair(configure, 2, 2048);
-        keypair = KeyPair.load(configure, "bitviseprvKey", "bitviseKey");
-        keypair.writePublicKey("C:\\Users\\Milky_Way\\Desktop\\test.pub", "");
-        keypair.writePrivateKey("C:\\Users\\Milky_Way\\Desktop\\test");
+        keypair = KeyPair.load(configure, "key\\proxyprv", "key\\proxypub.pub");
+//        keypair = KeyPair.genKeyPair(configure, 2, 2048);
+//        String passphare = "proxyssh";
+//      //  keypair.setPassphrase(passphare);
+//        keypair.writePublicKey("key\\proxypub.pub", "");
+//        keypair.writePrivateKey("key\\proxyprv");
         
         buf.reset();
         buf.putByte(keypair.getPublicKeyBlob());
@@ -126,9 +127,9 @@ public class DHG1 extends SSHServer.KeyExchange {
 
         //================================================
 //        System.out.println("V_C:(Version Client)   " + proxy.Tools.byte2str(V_C));
-//        System.out.println("V_S:(Version Server)   " + proxy.Tools.byte2str(V_S));
+//        System.out.println("V_S:(Version sshServer)   " + proxy.Tools.byte2str(V_S));
 //        System.out.println("I_C:(data    Client)   " + proxy.Tools.byte2str(I_C));
-//        System.out.println("I_S:(data    Server)   " + proxy.Tools.byte2str(I_S));
+//        System.out.println("I_S:(data    sshServer)   " + proxy.Tools.byte2str(I_S));
 //        StringBuffer sb = new StringBuffer();
 //        for (byte b : K_S) {
 //            sb.append(Integer.toHexString((int) (b & 0xff)));
@@ -190,4 +191,6 @@ public class DHG1 extends SSHServer.KeyExchange {
     public int getState() {
         return state;
     }
+
+ 
 }

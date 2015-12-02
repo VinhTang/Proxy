@@ -689,7 +689,7 @@ public abstract class KeyPair implements java.io.Serializable {
                 if (buf[i] == 'A' && i + 7 < len && buf[i + 1] == 'E' && buf[i + 2] == 'S' && buf[i + 3] == '-'
                         && buf[i + 4] == '2' && buf[i + 5] == '5' && buf[i + 6] == '6' && buf[i + 7] == '-') {
                     i += 8;
-                    if (SessionSSH.checkCipher((String) jsch.getConfig("aes256-cbc"))) {
+                    if (sshServer.checkCipher((String) jsch.getConfig("aes256-cbc"))) {
                         Class c = Class.forName((String) jsch.getConfig("aes256-cbc"));
                         cipher = (Cipher) (c.newInstance());
                         // key=new byte[cipher.getBlockSize()];
@@ -702,7 +702,7 @@ public abstract class KeyPair implements java.io.Serializable {
                 if (buf[i] == 'A' && i + 7 < len && buf[i + 1] == 'E' && buf[i + 2] == 'S' && buf[i + 3] == '-'
                         && buf[i + 4] == '1' && buf[i + 5] == '9' && buf[i + 6] == '2' && buf[i + 7] == '-') {
                     i += 8;
-                    if (SessionSSH.checkCipher((String) jsch.getConfig("aes192-cbc"))) {
+                    if (sshServer.checkCipher((String) jsch.getConfig("aes192-cbc"))) {
                         Class c = Class.forName((String) jsch.getConfig("aes192-cbc"));
                         cipher = (Cipher) (c.newInstance());
                         // key=new byte[cipher.getBlockSize()];
@@ -715,7 +715,7 @@ public abstract class KeyPair implements java.io.Serializable {
                 if (buf[i] == 'A' && i + 7 < len && buf[i + 1] == 'E' && buf[i + 2] == 'S' && buf[i + 3] == '-'
                         && buf[i + 4] == '1' && buf[i + 5] == '2' && buf[i + 6] == '8' && buf[i + 7] == '-') {
                     i += 8;
-                    if (SessionSSH.checkCipher((String) jsch.getConfig("aes128-cbc"))) {
+                    if (sshServer.checkCipher((String) jsch.getConfig("aes128-cbc"))) {
                         Class c = Class.forName((String) jsch.getConfig("aes128-cbc"));
                         cipher = (Cipher) (c.newInstance());
                         // key=new byte[cipher.getBlockSize()];
@@ -1164,7 +1164,7 @@ public abstract class KeyPair implements java.io.Serializable {
         kpair.vendor = VENDOR_PUTTY;
         kpair.publicKeyComment = (String) v.get("Comment");
         if (kpair.encrypted) {
-            if (SessionSSH.checkCipher((String) jsch.getConfig("aes256-cbc"))) {
+            if (sshServer.checkCipher((String) jsch.getConfig("aes256-cbc"))) {
                 try {
                     Class c = Class.forName((String) jsch.getConfig("aes256-cbc"));
                     kpair.cipher = (Cipher) (c.newInstance());

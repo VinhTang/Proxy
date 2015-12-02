@@ -5,7 +5,7 @@
  */
 package SSHServer;
 
-public abstract class UserAuth {
+public abstract class UserAuthlinux {
 
     protected static final int SSH_MSG_USERAUTH_REQUEST = 50;
     protected static final int SSH_MSG_USERAUTH_FAILURE = 51;
@@ -20,11 +20,11 @@ public abstract class UserAuth {
     protected Buffer buf;
     protected String username;
 
-    public boolean start(sshServer session) throws Exception {
+    public boolean start(sshLinux session) throws Exception {
         //this.userinfo=session.getUserInfo();
         this.packet = session.packet;
         this.buf = packet.getBuffer();
-        //this.username=session.getUserName();
+        this.username=session.getUserName();
         return true;
     }
 }

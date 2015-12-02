@@ -45,11 +45,16 @@ public class IO {
     }
 
     public void put(Packet p) throws IOException, java.net.SocketException {
-        out.write(p.buffer.buffer, 0, p.buffer.index);
-        out.flush();
+        try {
+            out.write(p.buffer.buffer, 0, p.buffer.index);
+            out.flush();
+        } catch (Exception e) {
+            System.err.println(e.toString());
+        }
+
     }
 
-    void put(byte[] array, int begin, int length) throws IOException {
+    public void put(byte[] array, int begin, int length) throws IOException {
         out.write(array, begin, length);
         out.flush();
     }

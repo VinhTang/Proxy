@@ -39,7 +39,7 @@ public class ChannelShell extends ChannelSession {
 
     public void start() throws ProxyException {
 
-        SessionSSH _session = getSession();
+        sshServer _session = getSession();
         Logs.Println(proxy.Logger.DEBUG, "_session: " + _session);
 
 //        if (io.in != null) {

@@ -51,7 +51,7 @@ public abstract class Channel implements Runnable {
         return null;
     }
 
-    static Channel getChannel(int id, SessionSSH session) {
+    static Channel getChannel(int id, sshServer session) {
         synchronized (pool) {
             for (int i = 0; i < pool.size(); i++) {
                 Channel c = (Channel) (pool.elementAt(i));
@@ -94,7 +94,7 @@ public abstract class Channel implements Runnable {
     volatile int reply = 0;
     volatile int connectTimeout = 0;
 
-    private SessionSSH session;
+    private sshServer session;
 
     int notifyme = 0;
 
@@ -232,7 +232,7 @@ public abstract class Channel implements Runnable {
                 packet = new Packet(buffer);
 
                 byte[] _buf = buffer.buffer;
-                if (_buf.length - (14 + 0) - SessionSSH.buffer_margin <= 0) {
+                if (_buf.length - (14 + 0) - sshServer.buffer_margin <= 0) {
                     buffer = null;
                     packet = null;
                     throw new IOException("failed to initialize the channel.");
@@ -259,8 +259,8 @@ public abstract class Channel implements Runnable {
                 int _bufl = _buf.length;
                 while (l > 0) {
                     int _l = l;
-                    if (l > _bufl - (14 + dataLen) - SessionSSH.buffer_margin) {
-                        _l = _bufl - (14 + dataLen) - SessionSSH.buffer_margin;
+                    if (l > _bufl - (14 + dataLen) - sshServer.buffer_margin) {
+                        _l = _bufl - (14 + dataLen) - sshServer.buffer_margin;
                     }
 
                     if (_l <= 0) {
@@ -283,7 +283,7 @@ public abstract class Channel implements Runnable {
                     return;
                 }
                 packet.reset();
-                buffer.putByte((byte) SessionSSH.SSH_MSG_CHANNEL_DATA);
+                buffer.putByte((byte) sshServer.SSH_MSG_CHANNEL_DATA);
                 buffer.putInt(recipient);
                 buffer.putInt(dataLen);
                 buffer.skip(dataLen);
@@ -500,7 +500,7 @@ public abstract class Channel implements Runnable {
             Buffer buf = new Buffer(100);
             Packet packet = new Packet(buf);
             packet.reset();
-            buf.putByte((byte) SessionSSH.SSH_MSG_CHANNEL_EOF);
+            buf.putByte((byte) sshServer.SSH_MSG_CHANNEL_EOF);
             buf.putInt(i);
             synchronized (this) {
                 if (!close) {
@@ -532,7 +532,7 @@ public abstract class Channel implements Runnable {
             Buffer buf = new Buffer(100);
             Packet packet = new Packet(buf);
             packet.reset();
-            buf.putByte((byte) SessionSSH.SSH_MSG_CHANNEL_CLOSE);
+            buf.putByte((byte) sshServer.SSH_MSG_CHANNEL_CLOSE);
             buf.putInt(i);
             synchronized (this) {
                 getSession().write(packet);
@@ -546,7 +546,7 @@ public abstract class Channel implements Runnable {
         return close;
     }
 
-    static void disconnect(SessionSSH session) {
+    static void disconnect(sshServer session) {
         Channel[] channels = null;
         int count = 0;
         synchronized (pool) {
@@ -600,7 +600,7 @@ public abstract class Channel implements Runnable {
 
     public boolean isConnected() {
        
-        SessionSSH _session = this.session;
+        sshServer _session = this.session;
         if (_session != null) {
             return _session.isConnected() && connected;
         }
@@ -681,12 +681,12 @@ public abstract class Channel implements Runnable {
         return exitstatus;
     }
 
-    void setSession(SessionSSH session) {
+    void setSession(sshServer session) {
         this.session = session;
     }
 
-    public SessionSSH getSession() throws ProxyException {
-        SessionSSH _session = session;
+    public sshServer getSession() throws ProxyException {
+        sshServer _session = session;
         if (_session == null) {            
             throw new ProxyException("session is not available");
         }
@@ -742,7 +742,7 @@ public abstract class Channel implements Runnable {
     }
 
     protected void sendChannelOpen() throws Exception {
-        SessionSSH _session = getSession();
+        sshServer _session = getSession();
         if (!_session.isConnected()) {
             throw new ProxyException("session is down");
         }
