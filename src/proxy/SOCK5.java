@@ -257,10 +257,10 @@ public class SOCK5 extends SOCK4 {
         byte[] REPLY = new byte[10];
         byte IP[] = new byte[4];
         
-        if (Parent.ServerSocket != null) {
-            InetAdd = Parent.ServerSocket.getInetAddress();
+        if (Parent.LinuxSocket != null) {
+            InetAdd = Parent.LinuxSocket.getInetAddress();
             DomainName = InetAdd.toString();
-            port = Parent.ServerSocket.getLocalPort();
+            port = Parent.LinuxSocket.getLocalPort();
         } else {
             IP[0] = 0;
             IP[1] = 0;

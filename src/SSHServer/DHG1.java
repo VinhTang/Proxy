@@ -83,9 +83,9 @@ public class DHG1 extends SSHServer.KeyExchange {
             proxy.Logs.Println(proxy.Logger.ERROR, ee.toString());
         }
         keypair = KeyPair.load(configure, "key\\proxyprv", "key\\proxypub.pub");
+        
 //        keypair = KeyPair.genKeyPair(configure, 2, 2048);
 //        String passphare = "proxyssh";
-//      //  keypair.setPassphrase(passphare);
 //        keypair.writePublicKey("key\\proxypub.pub", "");
 //        keypair.writePrivateKey("key\\proxyprv");
         

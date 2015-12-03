@@ -5,7 +5,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 
 public class SOCKServer extends Thread {
-    
+
     public static final int LISTEN_TIMEOUT = 200;
     public static final int DEFAULT_TIMEOUT = 200;
 
@@ -13,7 +13,7 @@ public class SOCKServer extends Thread {
     //protected Thread theThread = null;
     protected ServerSocket ListenSocket = null;
     protected int listenPort = 0;
-
+    protected java.util.Vector session = new java.util.Vector();
 
     ////////////////////////////////////////////////////////////////////////////
     public int getPort() {
@@ -34,7 +34,7 @@ public class SOCKServer extends Thread {
     ////////////////////////////////////////////////////////////////////////////
 
     public void run() {
-        
+
         Logs.PrintlnProxy(Logger.INFO, "SOCKS Server Start Listen !");
         SetBucket(this);
         Listen();
@@ -104,6 +104,13 @@ public class SOCKServer extends Thread {
             }
         }
     }
+
     ////////////////////////////////////////////////////////////////////////////
 
+    protected void addSession(Proxy proxy) {
+        synchronized (session) {
+            session.addElement(proxy);
+        }
+    }
+    ////////////////////////////////////////////////////////////////////////////
 }

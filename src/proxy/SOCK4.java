@@ -149,7 +149,7 @@ public class SOCK4 {
 //                    + Logs.getSocketInfo(Parent.ServerSocket));
 //        }
 //
-        Logs.Println(Logger.INFO,"Connected to " + Logs.getSocketInfo(Parent.ServerSocket));
+        Logs.Println(Logger.INFO,"Connected to " + Logs.getSocketInfo(Parent.LinuxSocket));
         Reply_Command(getSuccessCode());
 
     }

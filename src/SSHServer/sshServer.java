@@ -1,32 +1,24 @@
 package SSHServer;
 
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
 import java.net.Socket;
-import java.util.Random;
-
 import proxy.Logs;
 import proxy.Proxy;
 import proxy.Tools;
-import sun.nio.ch.Util;
 
 /**
  *
  * @author Milky_Way
  */
-public class sshServer implements Runnable {
+public class sshServer {
 
     static private final String version = "OpenSSH_5.3";
     ////////////////////////////////////////////////////////////////////////////
     protected Object parent;
-    proxy.Proxy proxys;
+    proxy.Proxy _proxy;
     static final int SSH_MSG_DISCONNECT = 1;
     static final int SSH_MSG_IGNORE = 2;
     static final int SSH_MSG_UNIMPLEMENTED = 3;
@@ -103,9 +95,7 @@ public class sshServer implements Runnable {
 
     private volatile boolean isAuthed = false;
 
-    private Thread connectThread = null;
     //private final Object parent  = null;
-
     private java.util.Hashtable config = null;
 
     private String hostKeyAlias = null;
@@ -116,8 +106,8 @@ public class sshServer implements Runnable {
 
     private long kex_start_time = 0L;
 
-    static int max_auth_tries = 6;
-    static int auth_failures = 0;
+     int max_auth_tries = 6;
+     int auth_failures = 0;
 
     IO io = null;
     IO iolinux = null;
@@ -130,6 +120,10 @@ public class sshServer implements Runnable {
 //    String usernameProxy = null;
 //    byte[] passwordProxy = null;
 ///////////////////////////////////////////////////////
+    UserAuth ua;
+    boolean auth = false;
+    boolean auth_cancel = false;
+
 // --- method authen choose
     String methodname = null;
 // --- authen: password
@@ -141,7 +135,7 @@ public class sshServer implements Runnable {
     byte[] algs_auth = null;
     byte[] publicblob_auth = null;
     // ---
-    static boolean firstcheck = true;
+    boolean firstcheck = true;
 ///////////////////////////////////////////////////////
     static final int buffer_margin = 32 + // maximum padding length
             20 + // maximum mac length
@@ -159,7 +153,7 @@ public class sshServer implements Runnable {
 
     public sshServer(Proxy proxy) {
         this.parent = this;
-        proxys = proxy;
+        _proxy = proxy;
         //parent = proxy;
         io = new IO();
     }
@@ -177,9 +171,9 @@ public class sshServer implements Runnable {
         synchronized (parent) {
             try {
                 //Client 
-                in = proxys.inClient;
+                in = _proxy.inClient;
                 io.setInputStream(in);
-                out = proxys.outClient;
+                out = _proxy.outClient;
                 io.setOutputStream(out);
 
             } catch (Exception e) {
@@ -357,14 +351,13 @@ public class sshServer implements Runnable {
                 Logs.Println(proxy.Logger.INFO, "SSH_MSG_NEWKEYS received");
                 in_kex = false;
                 send_newkeys();
-
                 updateKeys(kex);
 
             } else {
                 proxy.Logs.Println(proxy.Logger.INFO, "invalid signal. Connect Resfuse.");
                 disconnectpacket("Invalid signal. Connect Resfuse");
                 disconnect();
-                proxys.Close();
+                _proxy.Close();
             }
 //------------------------------------------------------------------------------        
 //                              Authentication
@@ -378,10 +371,7 @@ public class sshServer implements Runnable {
                 throw new ProxyException("MaxAuthTries: " + getConfig("MaxAuthTries"), e);
             }
 
-            boolean auth = false;
-            boolean auth_cancel = false;
-
-            UserAuth ua = null;
+            ua = null;
             try {
                 Class c = Class.forName(getConfig("userauth.none"));
                 ua = (UserAuth) (c.newInstance());
@@ -451,7 +441,7 @@ public class sshServer implements Runnable {
                 }
             }
 
-            //--------------test H password proxy-------------------------------
+            //------------------test H password proxy---------------------------
             HASH sha = null;
             try {
                 Class c = Class.forName(getConfig("sha-1"));
@@ -460,6 +450,7 @@ public class sshServer implements Runnable {
             } catch (Exception ee) {
                 proxy.Logs.Println(proxy.Logger.ERROR, ee.toString());
             }
+
             Spassword = Tools.str2byte("321");
             sha.update(Spassword, 0, Spassword.length);
             Spassword = sha.digest();
@@ -486,6 +477,8 @@ public class sshServer implements Runnable {
                             System.err.println("SSH: " + max_auth_tries);
                             if (auth_failures == max_auth_tries) {
                                 Logs.Println(proxy.Logger.INFO, "Client fail authentication: fail !");
+                                proxy.Logs.Println(proxy.Logger.INFO, "Too many times authen for user " + username);
+                                disconnectpacket("Too many times authen for user " + username);
                                 disconnect();
                                 auth_cancel = true;
                             }
@@ -496,17 +489,17 @@ public class sshServer implements Runnable {
                         if (Logs.getLogger().isEnabled(proxy.Logger.WARN)) {
                             Logs.Println(proxy.Logger.WARN, "an exception during authentication\n" + ee.toString());
                         }
-                        isConnected = false;
+                        disconnectpacket("Too many times authen for user " + username);
                         disconnect();
                     }
                     //------------
                 }
 
             }
-
             firstcheck = true;
             Logs.Println(proxy.Logger.INFO, "Connect success to client");
             return true;
+
         } catch (Exception e) {
             in_kex = false;
             try {
@@ -520,7 +513,6 @@ public class sshServer implements Runnable {
                 return false;
             } catch (Exception ee) {
             }
-            isConnected = false;
             //e.printStackTrace();
             if (e instanceof RuntimeException) {
                 throw (RuntimeException) e;
@@ -529,345 +521,12 @@ public class sshServer implements Runnable {
                 throw (ProxyException) e;
             }
             throw new ProxyException("Session.connect: " + e);
-        } finally {
-//            Tools.bzero(this.password);
-//            this.password = null;
         }
     }
+
 ////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////SSH ACTION CENTER//////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-
-    public void start() {
-        synchronized (parent) {
-            if (isConnected) {
-                connectThread = new Thread(this);
-                connectThread.setName("Connect thread "/* + host + " session"*/);
-                if (daemon_thread) {
-                    connectThread.setDaemon(daemon_thread);
-                }
-                connectThread.start();
-
-            } else {
-
-            }
-        }
-    }
-    Runnable thread;
-    private Channel channel;
-    public long rwsize = 0;
-    public int rmpsize = 0;
-    public volatile boolean falg = false;
-
-    public void run() {
-        thread = this;
-
-        byte[] foo;
-        Buffer buf = new Buffer();
-        Packet packet = new Packet(buf);
-        int i = 0;
-
-        int senderchannel = new Random().nextInt((1024 - 100) + 1) + 100;
-        int recipientchannel = 0;
-        int[] start = new int[1];
-        int[] length = new int[1];
-        int msgType = 0;
-
-        String ctyp = null;
-
-        msgType = SSH_MSG_CHANNEL_OPEN;
-        firstcheck = false;
-        try {
-            //------------------------------------------------------------------
-            //------------------------------------------------------------------
-            while (isConnected && thread != null) {
-                if (firstcheck == true) {
-                    msgType = SSH_MSG_CHANNEL_OPEN_CONFIRMATION;
-                    firstcheck = false;
-                } else {
-                    buf.reset();
-                    buf = read(buf);
-                    msgType = buf.getCommand() & 0xff;
-                }
-                System.err.println("msg Type: (Nhan tu client)" + msgType);
-                switch (msgType) {
-                    case SSH_MSG_CHANNEL_OPEN:
-                        buf.getInt();
-                        buf.getByte();
-                        buf.getByte();
-                        ctyp = Tools.byte2str(buf.getString());
-                        try {
-                            channel = Channel.getChannel(ctyp);
-                            addChannel(channel);
-                            channel.getData(buf);
-                            channel.init();
-
-                            recipientchannel = channel.getRecipient();
-                            //System.err.println("recipientchannel: " + recipientchannel);
-//                            Thread tmp = new Thread(channel);
-//                            tmp.setName("Channel (SSH_OPEN) " + ctyp);
-//                            if (daemon_thread) {
-//                                tmp.setDaemon(daemon_thread);
-//                            }
-//                            tmp.start();
-                        } catch (Exception e) {
-                            Logs.Println(proxy.Logger.ERROR, "Failed in SSH connect channel: " + e.toString());
-                            disconnectpacket("Failed in SSH connect channel: " + e.toString());
-                            disconnect();
-                        }
-                        firstcheck = true;
-                        break;
-                    case SSH_MSG_CHANNEL_DATA:
-                        buf.getInt();
-                        buf.getByte();
-                        buf.getByte();
-                        buf.getInt();//recipientchannel
-                        channel = Channel.getChannel(i, this);
-                        foo = buf.getString(start, length);
-                        if (channel == null) {
-                            break;
-                        }
-                        if (length[0] == 0) {
-                            break;
-                        }
-
-                        try {
-
-                            //  channel.write(foo, start[0], length[0]);
-                        } catch (Exception e) {
-//System.err.println(e);
-                            try {
-                                channel.disconnect();
-                            } catch (Exception ee) {
-                            }
-                            break;
-                        }
-                        int len = length[0];
-                        channel.setLocalWindowSize(channel.lwsize - len);
-                        if (channel.lwsize < channel.lwsize_max / 2) {
-                            packet.reset();
-                            buf.putByte((byte) SSH_MSG_CHANNEL_WINDOW_ADJUST);
-                            buf.putInt(channel.getRecipient());
-                            buf.putInt(channel.lwsize_max - channel.lwsize);
-                            synchronized (channel) {
-                                if (!channel.close) {
-                                    write(packet);
-                                }
-                            }
-                            channel.setLocalWindowSize(channel.lwsize_max);
-                        }
-                        break;
-
-                    case SSH_MSG_CHANNEL_EOF:
-                        buf.getInt();
-                        buf.getShort();
-                        i = buf.getInt();
-                        channel = Channel.getChannel(i, this);
-                        if (channel != null) {
-                            //channel.eof_remote=true;
-                            //channel.eof();
-                            channel.eof_remote();
-                        }
-                        /*
-                         packet.reset();
-                         buf.putByte((byte)SSH_MSG_CHANNEL_EOF);
-                         buf.putInt(channel.getRecipient());
-                         write(packet);
-                         */
-                        break;
-                    case SSH_MSG_CHANNEL_CLOSE:
-                        buf.getInt();
-                        buf.getShort();
-                        i = buf.getInt();
-                        channel = Channel.getChannel(i, this);
-                        if (channel != null) {
-//	      channel.close();
-                            channel.disconnect();
-                        }
-
-                        break;
-                    case SSH_MSG_CHANNEL_OPEN_CONFIRMATION:
-
-                        //      byte      SSH_MSG_CHANNEL_OPEN_CONFIRMATION
-                        //      uint32    recipient channel
-                        //      uint32    sender channel
-                        //      uint32    initial window size
-                        //      uint32    maximum packet size
-                        //      ....      channel type specific data follows
-                        buf.reset();
-                        packet.reset();
-                        buf.putByte((byte) SSH_MSG_CHANNEL_OPEN_CONFIRMATION);
-                        //System.err.println("confirm: " + channel.getRecipient());
-
-                        buf.putInt(recipientchannel); //recipient channel 
-                        buf.putInt(0); //sender channel
-                        buf.putInt(0);
-                        buf.putInt(rmpsize);
-                        write(packet);
-                        break;
-
-                    case SSH_MSG_CHANNEL_OPEN_FAILURE:
-                        buf.getInt();
-                        buf.getShort();
-                        i = buf.getInt();
-                        channel = Channel.getChannel(i, this);
-                        if (channel != null) {
-                            int reason_code = buf.getInt();
-                            //foo=buf.getString();  // additional textual information
-                            //foo=buf.getString();  // language tag 
-                            channel.setExitStatus(reason_code);
-                            channel.close = true;
-                            channel.eof_remote = true;
-                            channel.setRecipient(0);
-                        }
-                        break;
-
-                    case SSH_MSG_CHANNEL_REQUEST:
-                        buf.getInt();
-                        buf.getShort();
-                        buf.getInt(); //sender
-
-                        foo = buf.getString();
-                        boolean reply = (buf.getByte() != 0);
-                        System.err.println("foo: " + Tools.byte2str(foo));
-                        if (channel != null && Tools.byte2str(foo).equals("shell")) {
-
-                            buf.reset();
-                            packet.reset();
-                            buf.putByte((byte) SSH_MSG_CHANNEL_SUCCESS);
-                            buf.putInt(recipientchannel);
-                            write(packet);
-
-                            buf.reset();
-                            packet.reset();
-                            buf.putByte((byte) SSH_MSG_CHANNEL_WINDOW_ADJUST);
-                            buf.putInt(recipientchannel);
-                            buf.putInt((int) rwsize);
-                            write(packet);
-
-                            buf.reset();
-                            packet.reset();
-                            buf.putByte((byte) SSH_MSG_CHANNEL_SUCCESS);
-                            buf.putInt(recipientchannel);
-                            write(packet);
-                            // chi mo kenh sell
-//                             channel = Channel.getChannel(recipientchannel, this);                            
-                            channel = Channel.getChannel("shell");
-                            addChannel(channel);
-
-                            channel.setRecipient(recipientchannel);
-                            channel.setRemoteWindowSize(rwsize);
-                            channel.setRemotePacketSize(rmpsize);
-                            channel.init();
-                            falg = true;
-                            channel.start();
-
-                        } else {
-                        }//                        
-                        break;
-
-                    case SSH_MSG_CHANNEL_SUCCESS:
-                        buf.getInt();
-                        buf.getShort();
-                        i = buf.getInt();
-                        channel = Channel.getChannel(i, this);
-                        if (channel == null) {
-                            break;
-                        }
-                        channel.reply = 1;
-                        break;
-                    case SSH_MSG_CHANNEL_FAILURE:
-                        buf.getInt();
-                        buf.getShort();
-                        i = buf.getInt();
-                        channel = Channel.getChannel(i, this);
-                        if (channel == null) {
-                            break;
-                        }
-                        channel.reply = 0;
-                        break;
-
-                    default:
-                        //System.err.println("Session.run: unsupported type "+msgType); 
-                        throw new IOException("Unknown SSH message type " + msgType);
-                }
-            }
-
-        } catch (Exception e) {
-            Logs.Println(proxy.Logger.INFO, "Caught an exception, leaving main loop due to " + e.getMessage());
-
-        }
-
-        try {
-            disconnect();
-        } catch (NullPointerException e) {
-            //System.err.println("@1");
-            //e.printStackTrace();
-        } catch (Exception e) {
-            //System.err.println("@2");
-            //e.printStackTrace();
-        }
-        isConnected = false;
-    }
-
-    //-----------------------------------------------------------
-    public Channel openChannel(String type) throws ProxyException {
-        if (!isConnected) {
-            throw new ProxyException("session is down");
-        }
-        try {
-            System.err.println("type: channel " + type);
-            channel = Channel.getChannel(type);
-
-            addChannel(channel);
-            channel.init();
-            return channel;
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
-//
-//    private void applyConfigChannel(ChannelSession channel) throws ProxyException {
-//        ConfigRepository configRepository = Configure.getConfigRepository();
-//        if (configRepository == null) {
-//            return;
-//        }
-//
-//        ConfigRepository.Config config
-//                = configRepository.getConfig("");
-//
-//        String value = null;
-//
-//        value = config.getValue("ForwardAgent");
-//        if (value != null) {
-//            channel.setAgentForwarding(value.equals("yes"));
-//        }
-//
-//        value = config.getValue("RequestTTY");
-//        if (value != null) {
-//            channel.setPty(value.equals("yes"));
-//        }
-//    }
-//----------------------
-    private static final byte[] keepalivemsg = Tools.str2byte("keepalive@proxy.com");
-
-    private void addChannel(Channel channel) {
-        channel.setSession(this);
-    }
-
-    public void sendKeepAliveMsg() throws Exception {
-        Buffer buf = new Buffer();
-        Packet packet = new Packet(buf);
-        packet.reset();
-        buf.putByte((byte) SSH_MSG_GLOBAL_REQUEST);
-        buf.putString(keepalivemsg);
-        buf.putByte((byte) 1);
-        write(packet);
-    }
-    ////////////////////////////////////////////////////////////////////////////////
-    /////////////////////////////////SSH ACTION CENTER//////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////////
     //-----------------------------------------    
     private boolean in_kex = false; // if Proxy have a kex this Client in_kex = true
 
@@ -914,7 +573,7 @@ public class sshServer implements Runnable {
         if (not_available != null && not_available.length > 0) {
             cipherc2s = Tools.diffString(cipherc2s, not_available);
             ciphers2c = Tools.diffString(ciphers2c, not_available);
-            Logs.Println(proxy.Logger.DEBUG, "cipherc2s: send_kexinit() " + cipherc2s);
+            
             if (cipherc2s == null || ciphers2c == null) {
                 Logs.Println(proxy.Logger.ERROR, "There are not any available ciphers.");
             }
@@ -977,6 +636,7 @@ public class sshServer implements Runnable {
         buf.putString(proxy.Tools.str2byte(message));
         buf.putString(proxy.Tools.str2byte("en"));
         write(packet);
+
     }
 
     //-----------------------------------------
@@ -984,32 +644,9 @@ public class sshServer implements Runnable {
         if (!isConnected) {
             return;
         }
-        //System.err.println(this+": disconnect");
-        //Thread.dumpStack();
         Logs.Println(proxy.Logger.INFO, "Disconnecting from  port ");
-
-        /*
-         for(int i=0; i<Channel.pool.size(); i++){
-         try{
-         Channel c=((Channel)(Channel.pool.elementAt(i)));
-         if(c.session==this) c.eof();
-         }
-         catch(Exception e){
-         }
-         } 
-         */
-        Channel.disconnect(this);
-
         isConnected = false;
 
-        synchronized (parent) {
-            if (connectThread != null) {
-                Thread.yield();
-                connectThread.interrupt();
-                connectThread = null;
-            }
-        }
-        thread = null;
         try {
             if (io != null) {
                 if (io.in != null) {
@@ -1026,9 +663,7 @@ public class sshServer implements Runnable {
         }
 
         io = null;
-        proxys.Close();
-//        jsch.removeSession(this);
-        //System.gc();
+        _proxy.Close();
     }
 
 //-----------------------------------------
@@ -1206,93 +841,7 @@ public class sshServer implements Runnable {
 
         }
     }
-//------------------------------------------------------------------------------
 
-    /*public*/ /*synchronized*/ void write(Packet packet, Channel c, int length) throws Exception {
-
-        long t = getTimeout();
-        while (true) {
-
-            synchronized (c) {
-                System.err.println("--------------1");
-                if (c.rwsize < length) {
-                    try {
-                        c.notifyme++;
-                        c.wait(100);
-                    } catch (java.lang.InterruptedException e) {
-                    } finally {
-                        c.notifyme--;
-                    }
-                }
-
-                if (c.rwsize >= length) {
-                    c.rwsize -= length;
-                    break;
-                }
-
-            }
-            System.err.println("--------------2");
-            if (c.close || !c.isConnected()) {
-                throw new IOException("channel is broken");
-            }
-
-            boolean sendit = false;
-            int s = 0;
-            byte command = 0;
-            int recipient = -1;
-            System.err.println("--------------3");
-            synchronized (c) {
-                if (c.rwsize > 0) {
-                    long len = c.rwsize;
-                    if (len > length) {
-                        len = length;
-                    }
-                    if (len != length) {
-                        s = packet.shift((int) len,
-                                (c2scipher != null ? c2scipher_size : 8),
-                                (c2smac != null ? c2smac.getBlockSize() : 0));
-                    }
-                    System.err.println("--------------4");
-                    command = packet.buffer.getCommand();
-                    recipient = c.getRecipient();
-                    length -= len;
-                    c.rwsize -= len;
-                    sendit = true;
-                }
-            }
-            System.err.println("--------------5:sendit " + sendit);
-            if (sendit) {
-                _write(packet);
-                if (length == 0) {
-                    return;
-                }
-                packet.unshift(command, recipient, s, length);
-            }
-            System.err.println("--------------6");
-            synchronized (c) {
-
-                if (c.rwsize >= length) {
-                    c.rwsize -= length;
-                    break;
-                }
-
-                //try{ 
-                //System.out.println("1wait: "+c.rwsize);
-                //  c.notifyme++;
-                //  c.wait(100); 
-                //}
-                //catch(java.lang.InterruptedException e){
-                //}
-                //finally{
-                //  c.notifyme--;
-                //}
-            }
-        }
-        System.err.println("--------------7");
-        _write(packet);
-    }
-
-    //-----------------------------------------------------
     public void write(Packet packet) throws Exception {
 
         long t = getTimeout();
@@ -1301,7 +850,7 @@ public class sshServer implements Runnable {
                 Logs.Println(proxy.Logger.DEBUG, "timeout in wating for rekeying process.");
             }
             byte command = packet.buffer.getCommand();
-            System.err.println("SERVER [ gui ] StoL: " + command);
+            //System.err.println("SERVER [ send ] StoL: " + command);
             if (command == SSH_MSG_KEXINIT
                     || command == SSH_MSG_NEWKEYS
                     || command == SSH_MSG_KEXDH_INIT
@@ -1411,7 +960,7 @@ public class sshServer implements Runnable {
             }
 
             int type = buf.getCommand() & 0xff;
-            System.err.println("SERVER [ nhan ] StoL: " + type); // NHo xoa cho nay
+            //System.err.println("SERVER [ nhan ] StoL: " + type); // NHo xoa cho nay
             if (type == SSH_MSG_DISCONNECT) {
                 buf.rewind();
                 buf.getInt();
@@ -1446,7 +995,7 @@ public class sshServer implements Runnable {
                  " "+Util.byte2str(message)+
                  " "+Util.byte2str(language_tag));
                  */
-            
+
             } else if (type == UserAuth.SSH_MSG_USERAUTH_SUCCESS) {
                 isAuthed = true;
                 if (inflater == null && deflater == null) {

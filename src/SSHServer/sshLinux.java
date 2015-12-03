@@ -9,7 +9,6 @@ import proxy.Logs;
 
 public class sshLinux implements Runnable {
 
-    // http://ietf.org/internet-drafts/draft-ietf-secsh-assignednumbers-01.txt
     static final int SSH_MSG_DISCONNECT = 1;
     static final int SSH_MSG_IGNORE = 2;
     static final int SSH_MSG_UNIMPLEMENTED = 3;
@@ -78,9 +77,6 @@ public class sshLinux implements Runnable {
     private volatile boolean isConnected = false;
 
     private boolean isAuthed = false;
-
-    private Thread connectThread = null;
-
     boolean x11_forwarding = false;
     boolean agent_forwarding = false;
 
@@ -94,13 +90,6 @@ public class sshLinux implements Runnable {
             32;  // margin for deflater; deflater may inflate data
 
     private java.util.Hashtable config = null;
-
-    private String hostKeyAlias = null;
-    private int serverAliveInterval = 0;
-    private int serverAliveCountMax = 1;
-
-    protected boolean daemon_thread = false;
-
     private long kex_start_time = 0L;
 
     int max_auth_tries = 6;
@@ -109,7 +98,7 @@ public class sshLinux implements Runnable {
     String org_host = "127.0.0.1";
 
     int port = 22;
-    String host = "192.168.10.100";
+    String remotehost = "192.168.10.111";
     String username = "vinh";
     byte[] password = Tools.str2byte("123");
 
@@ -120,84 +109,24 @@ public class sshLinux implements Runnable {
     OutputStream out;
     InputStream inlinux;
     OutputStream outlinux;
-    proxy.Proxy proxys;
+    proxy.Proxy _proxy;
 
-    public sshLinux(proxy.Proxy proxy, String username, String host) throws ProxyException {
-
-        this.parent = this;
-        this.proxys = proxy;
-        io = new IO();
-        iolinux = new IO();
-
-//
-//        this.username = username;
-//        this.org_host = this.host = host;
-//        this.port = port;
-//        if (this.username == null) {
-//            try {
-//                this.username = (String) (System.getProperties().get("user.name"));
-//            } catch (SecurityException e) {
-//                // ignore e
-//            }
-//        }
-//        if (this.username == null) {
-//            throw new ProxyException("username is not given.");
-//        }
-    }
     SocketFactory socket_factory = null;
 
-    private void setStream() {
-        synchronized (parent) {
-            try {
-
-                //Client 
-//                in = parent.ClientInput;
-//                io.setInputStream(in);
-//                out = parent.ClientOutput;
-//                io.setOutputStream(out);
-/////////////////////////////////////////////////////////////////////////////////////
-                //Linux
-                socket = proxys.ServerSocket;
-                socket = proxy.Tools.createSocket(host, port, 0);
-                inlinux = socket.getInputStream();
-                outlinux = socket.getOutputStream();
-
-                socket.setTcpNoDelay(true);
-                iolinux.setInputStream(inlinux);
-                iolinux.setOutputStream(outlinux);
-
-            } catch (Exception e) {
-                System.err.println(e.toString());
-            }
-        }
-    }
-
+    ////////////////////////////////////////////////////////////////////////////    
     ////////////////////////////////////////////////////////////////////////////
-    public InputStream getInputstream() {
-        return in;
+    public sshLinux(proxy.Proxy proxy, String _username, String _remotehost) throws ProxyException {
+
+        this.parent = this;
+        _proxy = proxy;        
+        remotehost = _remotehost;
+        username = _username;
+        
+        io = new IO();
+        iolinux = new IO();
     }
 
-    public InputStream getLinuxInputstream() {
-        return inlinux;
-    }
-
-    public OutputStream getOutputstream() {
-        return out;
-    }
-
-    public OutputStream getLinuxOutputstream() {
-        return outlinux;
-    }
-
-    public boolean isConnected() {
-        return isConnected;
-    }
-
-    public IO getiolinux() {
-        return iolinux;
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
+    //-----------------------------------------
     public boolean connect() throws ProxyException {
         setStream();
         buf = new Buffer();
@@ -206,6 +135,7 @@ public class sshLinux implements Runnable {
             throw new ProxyException("session is already connected");
         }
 
+        
         if (random == null) {
             try {
                 Class c = Class.forName(getConfig("random"));
@@ -217,9 +147,11 @@ public class sshLinux implements Runnable {
         Packet.setRandom(random);
 
         if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-            Logs.Println(proxy.Logger.INFO, "Connecting to " + host + " port " + port);
+            Logs.Println(proxy.Logger.INFO, "Connecting to " + remotehost + " port " + port);
         }
         isConnected = true;
+        
+        
         try {
             int i, j;
             {
@@ -251,7 +183,7 @@ public class sshLinux implements Runnable {
                     }
                 }
                 if (j < 0) {
-                    throw new ProxyException("connection is closed by foreign host");
+                    throw new ProxyException("connection is closed by foreign remotehost");
                 }
 
                 if (buf.buffer[i - 1] == 10) {    // 0x0a
@@ -486,20 +418,15 @@ public class sshLinux implements Runnable {
             }
 
             isAuthed = true;
-            Logs.Println(proxy.Logger.INFO, "Connect success to Linux host " + host);
+            Logs.Println(proxy.Logger.INFO, "Connect success to Linux remotehost " + remotehost);
             return true;
         } catch (Exception e) {
             in_kex = false;
             try {
+                
                 if (isConnected) {
                     String message = e.toString();
-                    packet.reset();
-                    buf.checkFreeSize(1 + 4 * 3 + message.length() + 2 + buffer_margin);
-                    buf.putByte((byte) SSH_MSG_DISCONNECT);
-                    buf.putInt(3);
-                    buf.putString(Tools.str2byte(message));
-                    buf.putString(Tools.str2byte("en"));
-                    write(packet);
+                    disconnectpacket(message);
                 }
             } catch (Exception ee) {
             }
@@ -524,6 +451,9 @@ public class sshLinux implements Runnable {
 
     }
 
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
     private KeyExchangelinux receive_kexinit(Buffer buf) throws Exception {
         int j = buf.getInt();
         if (j != buf.getLength()) {    // packet was compressed and
@@ -663,186 +593,11 @@ public class sshLinux implements Runnable {
         }
     }
 
-//public void start(){ (new Thread(this)).start();  }
-    // encode will bin invoked in write with synchronization.
-    public void encode(Packet packet) throws Exception {
-//        System.err.println("encode: " + packet.buffer.getCommand());
-//        System.err.println("        " + packet.buffer.index);
-//if(packet.buffer.getCommand()==96){
-//Thread.dumpStack();
-//}
-        // NULL
-        if (deflater != null) {
-            
-            compress_len[0] = packet.buffer.index;
-            packet.buffer.buffer = deflater.compress(packet.buffer.buffer,
-                    5, compress_len);
-            packet.buffer.index = compress_len[0];
-        }
-        
-        
-        if (c2scipher != null) {
-             
-            //packet.padding(c2scipher.getIVSize());
-            packet.padding(c2scipher_size);
-            int pad = packet.buffer.buffer[4]; 
-            synchronized (random) {
-                random.fill(packet.buffer.buffer, packet.buffer.index - pad, pad);
-            }
-        } else {
-            packet.padding(8);
-        }
-
-        if (c2smac != null) {
-            c2smac.update(seqo);
-            c2smac.update(packet.buffer.buffer, 0, packet.buffer.index);
-            c2smac.doFinal(packet.buffer.buffer, packet.buffer.index);
-        }
-        if (c2scipher != null) {
-            byte[] buf = packet.buffer.buffer;
-            c2scipher.update(buf, 0, packet.buffer.index, buf, 0);
-        }
-        if (c2smac != null) {
-            packet.buffer.skip(c2smac.getBlockSize());
-        }
-
-    }
-
     int[] uncompress_len = new int[1];
     int[] compress_len = new int[1];
 
     private int s2ccipher_size = 8;
     private int c2scipher_size = 8;
-
-    public Buffer read(Buffer buf) throws Exception {
-        int j = 0;
-        while (true) {
-            buf.reset();
-            iolinux.getByte(buf.buffer, buf.index, s2ccipher_size);
-            buf.index += s2ccipher_size;
-            if (s2ccipher != null) {
-                s2ccipher.update(buf.buffer, 0, s2ccipher_size, buf.buffer, 0);
-            }
-            j = ((buf.buffer[0] << 24) & 0xff000000)
-                    | ((buf.buffer[1] << 16) & 0x00ff0000)
-                    | ((buf.buffer[2] << 8) & 0x0000ff00)
-                    | ((buf.buffer[3]) & 0x000000ff);
-            // RFC 4253 6.1. Maximum Packet Length
-            if (j < 5 || j > PACKET_MAX_SIZE) {
-                start_discard(buf, s2ccipher, s2cmac, j, PACKET_MAX_SIZE);
-            }
-            int need = j + 4 - s2ccipher_size;
-            //if(need<0){
-            //  throw new IOException("invalid data");
-            //}
-            if ((buf.index + need) > buf.buffer.length) {
-                byte[] foo = new byte[buf.index + need];
-                System.arraycopy(buf.buffer, 0, foo, 0, buf.index);
-                buf.buffer = foo;
-            }
-
-            if ((need % s2ccipher_size) != 0) {
-                String message = "Bad packet length " + need;
-                if (Logs.getLogger().isEnabled(proxy.Logger.FATAL)) {
-                    Logs.Println(proxy.Logger.INFO, message);
-                }
-                start_discard(buf, s2ccipher, s2cmac, j, PACKET_MAX_SIZE - s2ccipher_size);
-            }
-
-            if (need > 0) {
-                iolinux.getByte(buf.buffer, buf.index, need);
-                buf.index += (need);
-                if (s2ccipher != null) {
-                    s2ccipher.update(buf.buffer, s2ccipher_size, need, buf.buffer, s2ccipher_size);
-                }
-            }
-
-            if (s2cmac != null) {
-                s2cmac.update(seqi);
-                s2cmac.update(buf.buffer, 0, buf.index);
-
-                s2cmac.doFinal(s2cmac_result1, 0);
-                iolinux.getByte(s2cmac_result2, 0, s2cmac_result2.length);
-                if (!java.util.Arrays.equals(s2cmac_result1, s2cmac_result2)) {
-                    if (need > PACKET_MAX_SIZE) {
-                        throw new IOException("MAC Error");
-                    }
-                    start_discard(buf, s2ccipher, s2cmac, j, PACKET_MAX_SIZE - need);
-                    continue;
-                }
-            }
-
-            seqi++;
-
-            if (inflater != null) {
-                //inflater.uncompress(buf);
-                int pad = buf.buffer[4];
-                uncompress_len[0] = buf.index - 5 - pad;
-                byte[] foo = inflater.uncompress(buf.buffer, 5, uncompress_len);
-                if (foo != null) {
-                    buf.buffer = foo;
-                    buf.index = 5 + uncompress_len[0];
-                } else {
-                    System.err.println("fail in inflater");
-                    break;
-                }
-            }
-
-            int type = buf.getCommand() & 0xff;
-            System.err.println("LINUX [ nhan ] LtoS: " + type); // NHo xoa cho nay
-
-            if (type == SSH_MSG_DISCONNECT) {
-                buf.rewind();
-                buf.getInt();
-                buf.getShort();
-                int reason_code = buf.getInt();
-                byte[] description = buf.getString();
-                byte[] language_tag = buf.getString();
-                throw new ProxyException("SSH_MSG_DISCONNECT: "
-                        + reason_code
-                        + " " + Tools.byte2str(description)
-                        + " " + Tools.byte2str(language_tag));
-                //break;
-            } else if (type == SSH_MSG_IGNORE) {
-            } else if (type == SSH_MSG_UNIMPLEMENTED) {
-                buf.rewind();
-                buf.getInt();
-                buf.getShort();
-                int reason_id = buf.getInt();
-                if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-                    Logs.Println(proxy.Logger.INFO,
-                            "Received SSH_MSG_UNIMPLEMENTED for " + reason_id);
-                }
-            } else if (type == SSH_MSG_DEBUG) {
-                buf.rewind();
-                buf.getInt();
-                buf.getShort();
-                /*
-                 byte always_display=(byte)buf.getByte();
-                 byte[] message=buf.getString();
-                 byte[] language_tag=buf.getString();
-                 System.err.println("SSH_MSG_DEBUG:"+
-                 " "+Tools.byte2str(message)+
-                 " "+Tools.byte2str(language_tag));
-                 */
-
-            } else if (type == UserAuth.SSH_MSG_USERAUTH_SUCCESS) {
-                isAuthed = true;
-                if (inflater == null && deflater == null) {
-                    String method;
-                    method = guess[KeyExchange.PROPOSAL_COMP_ALGS_CTOS];
-                    initDeflater(method);
-                    method = guess[KeyExchange.PROPOSAL_COMP_ALGS_STOC];
-                    initInflater(method);
-                }
-                break;
-            } else {
-                break;
-            }
-        }
-        buf.rewind();
-        return buf;
-    }
 
     private void start_discard(Buffer buf, Cipher cipher, MAC mac,
             int packet_length, int discard) throws ProxyException, IOException {
@@ -1020,102 +775,140 @@ public class sshLinux implements Runnable {
         return result;
     }
 
-    /*public*/ /*synchronized*/ void write(Packet packet, Channel c, int length) throws Exception {
-        long t = getTimeout();
+    ////////////////////////////////////////////////////////////////////////////
+    public Buffer read(Buffer buf) throws Exception {
+        int j = 0;
         while (true) {
-            if (in_kex) {
-                if (t > 0L && (System.currentTimeMillis() - kex_start_time) > t) {
-                    throw new ProxyException("timeout in wating for rekeying process.");
-                }
-                try {
-                    Thread.sleep(10);
-                } catch (java.lang.InterruptedException e) {
-                };
-                continue;
+            buf.reset();
+            iolinux.getByte(buf.buffer, buf.index, s2ccipher_size);
+            buf.index += s2ccipher_size;
+            if (s2ccipher != null) {
+                s2ccipher.update(buf.buffer, 0, s2ccipher_size, buf.buffer, 0);
             }
-            synchronized (c) {
+            j = ((buf.buffer[0] << 24) & 0xff000000)
+                    | ((buf.buffer[1] << 16) & 0x00ff0000)
+                    | ((buf.buffer[2] << 8) & 0x0000ff00)
+                    | ((buf.buffer[3]) & 0x000000ff);
+            // RFC 4253 6.1. Maximum Packet Length
+            if (j < 5 || j > PACKET_MAX_SIZE) {
+                start_discard(buf, s2ccipher, s2cmac, j, PACKET_MAX_SIZE);
+            }
+            int need = j + 4 - s2ccipher_size;
+            //if(need<0){
+            //  throw new IOException("invalid data");
+            //}
+            if ((buf.index + need) > buf.buffer.length) {
+                byte[] foo = new byte[buf.index + need];
+                System.arraycopy(buf.buffer, 0, foo, 0, buf.index);
+                buf.buffer = foo;
+            }
 
-                if (c.rwsize < length) {
-                    try {
-                        c.notifyme++;
-                        c.wait(100);
-                    } catch (java.lang.InterruptedException e) {
-                    } finally {
-                        c.notifyme--;
-                    }
+            if ((need % s2ccipher_size) != 0) {
+                String message = "Bad packet length " + need;
+                if (Logs.getLogger().isEnabled(proxy.Logger.FATAL)) {
+                    Logs.Println(proxy.Logger.INFO, message);
                 }
+                start_discard(buf, s2ccipher, s2cmac, j, PACKET_MAX_SIZE - s2ccipher_size);
+            }
 
-                if (in_kex) {
+            if (need > 0) {
+                iolinux.getByte(buf.buffer, buf.index, need);
+                buf.index += (need);
+                if (s2ccipher != null) {
+                    s2ccipher.update(buf.buffer, s2ccipher_size, need, buf.buffer, s2ccipher_size);
+                }
+            }
+
+            if (s2cmac != null) {
+                s2cmac.update(seqi);
+                s2cmac.update(buf.buffer, 0, buf.index);
+
+                s2cmac.doFinal(s2cmac_result1, 0);
+                iolinux.getByte(s2cmac_result2, 0, s2cmac_result2.length);
+                if (!java.util.Arrays.equals(s2cmac_result1, s2cmac_result2)) {
+                    if (need > PACKET_MAX_SIZE) {
+                        throw new IOException("MAC Error");
+                    }
+                    start_discard(buf, s2ccipher, s2cmac, j, PACKET_MAX_SIZE - need);
                     continue;
                 }
+            }
 
-                if (c.rwsize >= length) {
-                    c.rwsize -= length;
+            seqi++;
+
+            if (inflater != null) {
+                //inflater.uncompress(buf);
+                int pad = buf.buffer[4];
+                uncompress_len[0] = buf.index - 5 - pad;
+                byte[] foo = inflater.uncompress(buf.buffer, 5, uncompress_len);
+                if (foo != null) {
+                    buf.buffer = foo;
+                    buf.index = 5 + uncompress_len[0];
+                } else {
+                    System.err.println("fail in inflater");
                     break;
                 }
-
-            }
-            if (c.close || !c.isConnected()) {
-                throw new IOException("channel is broken");
             }
 
-            boolean sendit = false;
-            int s = 0;
-            byte command = 0;
-            int recipient = -1;
-            synchronized (c) {
-                if (c.rwsize > 0) {
-                    long len = c.rwsize;
-                    if (len > length) {
-                        len = length;
-                    }
-                    if (len != length) {
-                        s = packet.shift((int) len,
-                                (c2scipher != null ? c2scipher_size : 8),
-                                (c2smac != null ? c2smac.getBlockSize() : 0));
-                    }
-                    command = packet.buffer.getCommand();
-                    recipient = c.getRecipient();
-                    length -= len;
-                    c.rwsize -= len;
-                    sendit = true;
-                }
-            }
-            if (sendit) {
-                _write(packet);
-                if (length == 0) {
-                    return;
-                }
-                packet.unshift(command, recipient, s, length);
-            }
+            int type = buf.getCommand() & 0xff;
+            //System.err.println("LINUX [ nhan ] LtoS: " + type); // NHo xoa cho nay
 
-            synchronized (c) {
-                if (in_kex) {
-                    continue;
+            if (type == SSH_MSG_DISCONNECT) {
+                buf.rewind();
+                buf.getInt();
+                buf.getShort();
+                int reason_code = buf.getInt();
+                byte[] description = buf.getString();
+                byte[] language_tag = buf.getString();
+                throw new ProxyException("SSH_MSG_DISCONNECT: "
+                        + reason_code
+                        + " " + Tools.byte2str(description)
+                        + " " + Tools.byte2str(language_tag));
+                //break;
+            } else if (type == SSH_MSG_IGNORE) {
+            } else if (type == SSH_MSG_UNIMPLEMENTED) {
+                buf.rewind();
+                buf.getInt();
+                buf.getShort();
+                int reason_id = buf.getInt();
+                if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
+                    Logs.Println(proxy.Logger.INFO,
+                            "Received SSH_MSG_UNIMPLEMENTED for " + reason_id);
                 }
-                if (c.rwsize >= length) {
-                    c.rwsize -= length;
-                    break;
-                }
+            } else if (type == SSH_MSG_DEBUG) {
+                buf.rewind();
+                buf.getInt();
+                buf.getShort();
+                /*
+                 byte always_display=(byte)buf.getByte();
+                 byte[] message=buf.getString();
+                 byte[] language_tag=buf.getString();
+                 System.err.println("SSH_MSG_DEBUG:"+
+                 " "+Tools.byte2str(message)+
+                 " "+Tools.byte2str(language_tag));
+                 */
 
-                //try{ 
-                //System.out.println("1wait: "+c.rwsize);
-                //  c.notifyme++;
-                //  c.wait(100); 
-                //}
-                //catch(java.lang.InterruptedException e){
-                //}
-                //finally{
-                //  c.notifyme--;
-                //}
+            } else if (type == UserAuth.SSH_MSG_USERAUTH_SUCCESS) {
+                isAuthed = true;
+                if (inflater == null && deflater == null) {
+                    String method;
+                    method = guess[KeyExchange.PROPOSAL_COMP_ALGS_CTOS];
+                    initDeflater(method);
+                    method = guess[KeyExchange.PROPOSAL_COMP_ALGS_STOC];
+                    initInflater(method);
+                }
+                break;
+            } else {
+                break;
             }
         }
-        _write(packet);
+        buf.rewind();
+        return buf;
     }
 
     public void write(Packet packet) throws Exception {
-        System.err.println(packet.buffer.getCommand());
-        System.err.println(packet.buffer.index);
+//        System.err.println(packet.buffer.getCommand());
+//        System.err.println(packet.buffer.index);
         long t = getTimeout();
         while (in_kex) {
             if (t > 0L && (System.currentTimeMillis() - kex_start_time) > t) {
@@ -1140,7 +933,7 @@ public class sshLinux implements Runnable {
             };
         }
         _write(packet);
-        
+
     }
 
     public void _write(Packet packet) throws Exception {
@@ -1151,63 +944,44 @@ public class sshLinux implements Runnable {
                 seqo++;
             }
         }
-        
+
     }
 
-    Runnable thread;
+    public void encode(Packet packet) throws Exception {
 
-    public void disconnect() {
-        if (!isConnected) {
-            return;
-        }
-        //System.err.println(this+": disconnect");
-        //Thread.dumpStack();
-        if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-            Logs.Println(proxy.Logger.INFO,
-                    "Disconnecting from " + host + " port " + port);
-        }
-        /*
-         for(int i=0; i<Channel.pool.size(); i++){
-         try{
-         Channel c=((Channel)(Channel.pool.elementAt(i)));
-         if(c.session==this) c.eof();
-         }
-         catch(Exception e){
-         }
-         } 
-         */
+        if (deflater != null) {
 
-        isConnected = false;
-        synchronized (parent) {
-            if (connectThread != null) {
-                Thread.yield();
-                connectThread.interrupt();
-                connectThread = null;
+            compress_len[0] = packet.buffer.index;
+            packet.buffer.buffer = deflater.compress(packet.buffer.buffer,
+                    5, compress_len);
+            packet.buffer.index = compress_len[0];
+        }
+
+        if (c2scipher != null) {
+
+            //packet.padding(c2scipher.getIVSize());
+            packet.padding(c2scipher_size);
+            int pad = packet.buffer.buffer[4];
+            synchronized (random) {
+                random.fill(packet.buffer.buffer, packet.buffer.index - pad, pad);
             }
+        } else {
+            packet.padding(8);
         }
-        thread = null;
-        try {
-            if (iolinux != null) {
-                if (iolinux.in != null) {
-                    iolinux.in.close();
-                }
-                if (iolinux.out != null) {
-                    iolinux.out.close();
-                }
-                if (iolinux.out_ext != null) {
-                    iolinux.out_ext.close();
-                }
-            }
-        } catch (Exception e) {
-//      e.printStackTrace();
-        }
-        iolinux = null;
-        socket = null;
-//    synchronized(jsch.pool){
-//      jsch.pool.removeElement(this);
-//    }
 
-        //System.gc();
+        if (c2smac != null) {
+            c2smac.update(seqo);
+            c2smac.update(packet.buffer.buffer, 0, packet.buffer.index);
+            c2smac.doFinal(packet.buffer.buffer, packet.buffer.index);
+        }
+        if (c2scipher != null) {
+            byte[] buf = packet.buffer.buffer;
+            c2scipher.update(buf, 0, packet.buffer.index, buf, 0);
+        }
+        if (c2smac != null) {
+            packet.buffer.skip(c2smac.getBlockSize());
+        }
+
     }
 
     private void initDeflater(String method) throws ProxyException {
@@ -1259,41 +1033,87 @@ public class sshLinux implements Runnable {
         }
     }
 
-    public void setProxy(proxy.Proxy proxy) {
-        this.parent = proxy;
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    
+    public void disconnectpacket(String message) throws Exception {
+        message = "Proxy Alert: " + message;
+        packet.reset();
+        buf.checkFreeSize(1 + 4 * 3 + message.length() + 2 + buffer_margin);
+        buf.putByte((byte) SSH_MSG_DISCONNECT);
+        buf.putInt(3);
+        buf.putString(proxy.Tools.str2byte(message));
+        buf.putString(proxy.Tools.str2byte("en"));
+        write(packet);
+
+    }
+    //-------------------------------------
+    
+    public void disconnect() {
+        if (!isConnected) {
+            return;
+        }
+        //System.err.println(this+": disconnect");
+        //Thread.dumpStack();
+        if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
+            Logs.Println(proxy.Logger.INFO,
+                    "Disconnecting from " + remotehost + " port " + port);
+        }
+
+        isConnected = false;
+        
+        try {
+            if (iolinux != null) {
+                if (iolinux.in != null) {
+                    iolinux.in.close();
+                }
+                if (iolinux.out != null) {
+                    iolinux.out.close();
+                }
+                if (iolinux.out_ext != null) {
+                    iolinux.out_ext.close();
+                }
+            }
+        } catch (Exception e) {
+//      e.printStackTrace();
+        }
+        iolinux = null;
+        socket = null;
+//    synchronized(jsch.pool){
+//      jsch.pool.removeElement(this);
+//    }
+        _proxy.Close();
+        //System.gc();
     }
 
-    public void setHost(String host) {
-        this.host = host;
-    }
+    
+    ////////////////////////////////////////////////////////////////////////////
+    private void setStream() {
+        synchronized (parent) {
+            try {
+                //Linux
+                socket = _proxy.LinuxSocket;
+                //socket = proxy.Tools.createSocket(remotehost, port, 0);
+                inlinux = socket.getInputStream();
+                outlinux = socket.getOutputStream();
 
-    public void setPort(int port) {
-        this.port = port;
-    }
+                //socket.setTcpNoDelay(true);
+                iolinux.setInputStream(inlinux);
+                iolinux.setOutputStream(outlinux);
 
-    void setUserName(String username) {
-        this.username = username;
-    }
-
-    public void setInputStream(InputStream in) {
-        this.in = in;
-    }
-
-    public void setOutputStream(OutputStream out) {
-        this.out = out;
-    }
-
-    public void setPassword(String password) {
-        if (password != null) {
-            this.password = Tools.str2byte(password);
+            } catch (Exception e) {
+                System.err.println(e.toString());
+            }
         }
     }
 
-    public void setPassword(byte[] password) {
-        if (password != null) {
-            this.password = new byte[password.length];
-            System.arraycopy(password, 0, this.password, 0, password.length);
-        }
+    public boolean isConnected() {
+        return isConnected;
+    }
+
+    public IO getiolinux() {
+        return iolinux;
     }
 
     public void setConfig(java.util.Properties newconf) {
@@ -1379,38 +1199,8 @@ public class sshLinux implements Runnable {
         write(packet);
     }
 
-    private static final byte[] keepalivemsg = Tools.str2byte("keepalive@jcraft.com");
-
-    public void sendKeepAliveMsg() throws Exception {
-        Buffer buf = new Buffer();
-        Packet packet = new Packet(buf);
-        packet.reset();
-        buf.putByte((byte) SSH_MSG_GLOBAL_REQUEST);
-        buf.putString(keepalivemsg);
-        buf.putByte((byte) 1);
-        write(packet);
-    }
-
-    private static final byte[] nomoresessions = Tools.str2byte("no-more-sessions@openssh.com");
-
-    public void noMoreSessionChannels() throws Exception {
-        Buffer buf = new Buffer();
-        Packet packet = new Packet(buf);
-        packet.reset();
-        buf.putByte((byte) SSH_MSG_GLOBAL_REQUEST);
-        buf.putString(nomoresessions);
-        buf.putByte((byte) 0);
-        write(packet);
-    }
-
-    private HostKey hostkey = null;
-
-    public HostKey getHostKey() {
-        return hostkey;
-    }
-
-    public String getHost() {
-        return host;
+    public String getRemoteHost() {
+        return remotehost;
     }
 
     public String getUserName() {
@@ -1421,61 +1211,36 @@ public class sshLinux implements Runnable {
         return port;
     }
 
-    public void setHostKeyAlias(String hostKeyAlias) {
-        this.hostKeyAlias = hostKeyAlias;
+    public void setProxy(proxy.Proxy proxy) {
+        this.parent = proxy;
     }
 
-    public String getHostKeyAlias() {
-        return hostKeyAlias;
+    public void setHost(String host) {
+        this.remotehost = host;
     }
 
-    /**
-     * Sets the interval to send a keep-alive message. If zero is specified, any
-     * keep-alive message must not be sent. The default interval is zero.
-     *
-     * @param interval the specified interval, in milliseconds.
-     * @see #getServerAliveInterval()
-     */
-    public void setServerAliveInterval(int interval) throws ProxyException {
-        setTimeout(interval);
-        this.serverAliveInterval = interval;
+    public void setPort(int port) {
+        this.port = port;
     }
 
-    /**
-     * Returns setting for the interval to send a keep-alive message.
-     *
-     * @see #setServerAliveInterval(int)
-     */
-    public int getServerAliveInterval() {
-        return this.serverAliveInterval;
+    void setUserName(String username) {
+        this.username = username;
     }
 
-    /**
-     * Sets the number of keep-alive messages which may be sent without
-     * receiving any messages back from the server. If this threshold is reached
-     * while keep-alive messages are being sent, the connection will be
-     * disconnected. The default value is one.
-     *
-     * @param count the specified count
-     * @see #getServerAliveCountMax()
-     */
-    public void setServerAliveCountMax(int count) {
-        this.serverAliveCountMax = count;
+    public void setPassword(String password) {
+        if (password != null) {
+            this.password = Tools.str2byte(password);
+        }
     }
 
-    /**
-     * Returns setting for the threshold to send keep-alive messages.
-     *
-     * @see #setServerAliveCountMax(int)
-     */
-    public int getServerAliveCountMax() {
-        return this.serverAliveCountMax;
+    public void setPassword(byte[] password) {
+        if (password != null) {
+            this.password = new byte[password.length];
+            System.arraycopy(password, 0, this.password, 0, password.length);
+        }
     }
 
-    public void setDaemonThread(boolean enable) {
-        this.daemon_thread = enable;
-    }
-
+    ////////////////////////////////////////////////////////////////////////////
     private String[] checkCiphers(String ciphers) {
         if (ciphers == null || ciphers.length() == 0) {
             return null;
@@ -1615,6 +1380,7 @@ public class sshLinux implements Runnable {
         }
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     @Override
     public void run() {
 

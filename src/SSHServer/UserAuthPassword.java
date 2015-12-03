@@ -21,8 +21,7 @@ class UserAuthPassword extends UserAuth {
             HASH sha = null;
             //----------------------------------------------
             if (session.auth_failures == session.max_auth_tries) {
-                proxy.Logs.Println(proxy.Logger.INFO, "Too many times authen for user " + username);
-                session.disconnectpacket("Too many times authen for user " + username);
+                
                 return false;
             }
             try {
