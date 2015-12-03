@@ -644,8 +644,7 @@ public class sshServer {
         if (!isConnected) {
             return;
         }
-        Logs.Println(proxy.Logger.INFO, "Disconnecting from  port ");
-        isConnected = false;
+        
 
         try {
             if (io != null) {

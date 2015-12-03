@@ -282,7 +282,7 @@ public class Proxy extends Thread {
         }
         if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
             Logs.Println(proxy.Logger.INFO,
-                    "Disconnecting from " + RemoteHost + " port " + RemotePort);
+                    "Disconnect from " + RemoteHost + " port " + RemotePort);
         }
         isConnected = false;
         try {
@@ -293,7 +293,7 @@ public class Proxy extends Thread {
             }
             if (ServerSide != null) {
                 ServerSide.disconnectpacket("");
-                LinuxSide.disconnect();
+                ServerSide.disconnect();
             }
         } catch (Exception e) {
         }
@@ -319,7 +319,7 @@ public class Proxy extends Thread {
         LinuxSocket = null;
         ClientSocket = null;
 
-        Logs.PrintlnProxy(Logger.INFO, "Connecttion from user " + Tools.byte2str(communicator.UserID)+ " close!");
+        Logs.PrintlnProxy(Logger.INFO, "Connecttion from user" + Tools.byte2str(communicator.UserID)+ " close!");
     }
     //-------------------------------------------
 

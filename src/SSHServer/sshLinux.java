@@ -1056,10 +1056,7 @@ public class sshLinux implements Runnable {
         }
         //System.err.println(this+": disconnect");
         //Thread.dumpStack();
-        if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-            Logs.Println(proxy.Logger.INFO,
-                    "Disconnecting from " + remotehost + " port " + port);
-        }
+        
 
         isConnected = false;
         

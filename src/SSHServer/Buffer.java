@@ -136,6 +136,10 @@ public class Buffer {
         return (buffer[s++] & 0xff);
     }
 
+    public byte _getByte() {
+        return (buffer[s++]);
+    }
+
     public void getByte(byte[] foo) {
         getByte(foo, 0, foo.length);
     }

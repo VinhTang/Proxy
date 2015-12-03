@@ -136,6 +136,14 @@ public class Tools {
     }
 
     //-------------------
+    public static String byte2hexstr(byte[] hex) {
+        StringBuilder sb = new StringBuilder(hex.length * 2);
+        for (byte b : hex) {
+            sb.append(String.format("%02x",b & 0xff));
+        }
+        return sb.toString();
+    }
+    //-------------------
     private static final byte[] b64 = Tools.str2byte("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=");
 
     private static byte val(byte foo) {
