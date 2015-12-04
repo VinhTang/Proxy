@@ -799,7 +799,7 @@ public class sshServer {
             return null;
         }
 
-        Logs.Println(proxy.Logger.DEBUG, "CheckCiphers: " + ciphers);
+       // Logs.Println(proxy.Logger.DEBUG, "CheckCiphers: " + ciphers);
 
         java.util.Vector result = new java.util.Vector();
         String[] _ciphers = proxy.Tools.split(ciphers, ",");
@@ -817,9 +817,9 @@ public class sshServer {
 
         System.arraycopy(result.toArray(), 0, foo, 0, result.size());
 
-        for (int i = 0; i < foo.length; i++) {
-            Logs.Println(proxy.Logger.DEBUG, foo[i] + " is not available.");
-        }
+//        for (int i = 0; i < foo.length; i++) {
+//            Logs.Println(proxy.Logger.DEBUG, foo[i] + " is not available.");
+//        }
 
         return foo;
     }
@@ -832,10 +832,10 @@ public class sshServer {
             Cipher _c = (Cipher) (c.newInstance());
 
             _c.init(Cipher.ENCRYPT_MODE, new byte[_c.getBlockSize()], new byte[_c.getIVSize()]);
-            Logs.Println(proxy.Logger.INFO, "OK   check Cipher: " + cipher);
+            //Logs.Println(proxy.Logger.DEBUG, "OK   check Cipher: " + cipher);
             return true;
         } catch (Exception e) {
-            Logs.Println(proxy.Logger.INFO, "fail checkCipher:  " + cipher);
+            //Logs.Println(proxy.Logger.DEBUG, "fail checkCipher:  " + cipher);
             return false;
 
         }

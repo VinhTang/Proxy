@@ -231,7 +231,7 @@ public class Proxy extends Thread {
 //        Thread StoL = new Thread(new ServertoLinux(bucket, ServerSide, LinuxSide), "Server to Linux");
         CtoS.start();
         StoL.start();
-        
+
     }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -319,7 +319,7 @@ public class Proxy extends Thread {
         LinuxSocket = null;
         ClientSocket = null;
 
-        Logs.PrintlnProxy(Logger.INFO, "Connecttion from user" + Tools.byte2str(communicator.UserID)+ " close!");
+        Logs.PrintlnProxy(Logger.INFO, "Connecttion from user" + Tools.byte2str(communicator.UserID) + " close!");
     }
     //-------------------------------------------
 

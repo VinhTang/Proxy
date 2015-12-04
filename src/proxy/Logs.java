@@ -4,6 +4,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 
 /*
@@ -23,7 +24,10 @@ public class Logs {
     ////////////////////////////////////////////////////////////////////////////
     private static DateFormat dateFormat;
     private static Date date;
-
+    
+    
+    ////////////////////////////////////////////////////////////////////////////
+    
     private static final Logger DEVNULL = new Logger() {
 
         public boolean isEnabled(int level) {
@@ -110,7 +114,7 @@ public class Logs {
     public static class ClientLog implements Logger {
 
         static Socket ClientSock;
-
+        ArrayList<Info> Info = new ArrayList(); 
         public ClientLog(Socket ClientSocket) {
             ClientSock = ClientSocket;
         }

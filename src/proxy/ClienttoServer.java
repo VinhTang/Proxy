@@ -50,7 +50,7 @@ public class ClienttoServer extends Thread {
                     int lendata = buf.getInt();
                     byte[] b = new byte[lendata];
                     System.arraycopy(buf.buffer, 14, b, 0, lendata);
-                    
+
                     if (lendata == 1) {
                         switch (b[0]) {
                             case 13: // cariage return
@@ -59,7 +59,7 @@ public class ClienttoServer extends Thread {
                                 int j = 0;
                                 for (int i = 0; i < _buflog.index; i++) {
                                     temp = _buflog._getByte();
-                                    if (temp >= 32 && temp != 127) {  
+                                    if (temp >= 32 && temp != 127) {
                                         foo[j++] = temp;
                                     }
                                 }
@@ -69,7 +69,9 @@ public class ClienttoServer extends Thread {
                                 break;
 
                             case 127:  // del
-                                _buflog.skip(-1);
+                                if (_buflog.s != 0) {
+                                    _buflog.skip(-1);
+                                }
                                 break;
 
                             default:
