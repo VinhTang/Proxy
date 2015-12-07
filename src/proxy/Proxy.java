@@ -36,6 +36,8 @@ public class Proxy extends Thread {
     protected String UserSSH = "vinh";
     protected String PassSSH = "123";
 
+    protected String Username = null;
+    protected String Password = null;
     ////////////////////////////////////////////////////////////////////////////
     //get Method
     public String getRemoteHost() {
@@ -54,22 +56,6 @@ public class Proxy extends Thread {
         return HostPort;
     }
 
-    // set Method
-    public void setRemoteHost(String Rhost) {
-        this.RemoteHost = Rhost;
-    }
-
-    public void setRemotePort(int RPort) {
-        this.RemotePort = RPort;
-    }
-
-    public void setHost(String Host) {
-        this.Host = Host;
-    }
-
-    public void setPort(int Hport) {
-        this.HostPort = Hport;
-    }
     //---------------------------
     public static final int DEFAULT_BUF_SIZE = 4096;
 
@@ -84,7 +70,7 @@ public class Proxy extends Thread {
     public static final int DEFAULT_TIMEOUT = 3 * 60 * 1000;
     public volatile boolean isConnected = false;
 
-    public final boolean Have_Authentication = false; //SOCKs 5 Authentication Method
+    public final boolean Have_Authentication = true; //SOCKs 5 Authentication Method
 
     public Proxy getProxy() {
         return this;
@@ -177,12 +163,16 @@ public class Proxy extends Thread {
             }
             communicator.AuthenticateVersion(SOCKVersion);
             communicator.GetClientCommand();
+            Username = communicator.getUsername();
+            Password = communicator.getPassword();
             //-------------------------------------------------------
             Logs.Println(Logger.INFO, "Accepted SOCKS " + SOCKVersion + " Request! ");
-
+            
+            
             //---------SSH CONNECT-------------------------------------
             RemoteHost = communicator.getRemoteHost();
             RemotePort = communicator.getRemotePort();
+            
             // sshserver check username/pass ? setRemotehost, of Proxy class : disconnect in sshserver
             if (ConnectToServer(RemoteHost, RemotePort) == false) {
                 this.Close();
@@ -319,7 +309,7 @@ public class Proxy extends Thread {
         LinuxSocket = null;
         ClientSocket = null;
 
-        Logs.PrintlnProxy(Logger.INFO, "Connecttion from user" + Tools.byte2str(communicator.UserID) + " close!");
+        Logs.PrintlnProxy(Logger.INFO, "Connecttion from user" + communicator.UserID + " close!");
     }
     //-------------------------------------------
 
