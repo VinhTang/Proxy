@@ -167,7 +167,7 @@ public class Proxy extends Thread {
             Password = communicator.getPassword();
             //-------------------------------------------------------
             Logs.Println(Logger.INFO, "Accepted SOCKS " + SOCKVersion + " Request! ");
-            
+            DB_controller.CheckUser(this, Username, Password, RemoteHost);
             
             //---------SSH CONNECT-------------------------------------
             RemoteHost = communicator.getRemoteHost();
@@ -177,9 +177,12 @@ public class Proxy extends Thread {
             if (ConnectToServer(RemoteHost, RemotePort) == false) {
                 this.Close();
             }
-
+            //System.out.println(" USer name :"+ Username + " Pass "+ Password);
             ServerSide = new sshServer(this);
-            LinuxSide = new sshLinux(this, UserSSH, RemoteHost);
+            LinuxSide = new sshLinux(this, RemoteHost);
+            LinuxSide.setUserName(UserSSH);
+            LinuxSide.setPassword(PassSSH);
+            
             //start communication with sshServer
             isConnected = true;
             boolean server = false;

@@ -23,7 +23,7 @@ public class test__________ {
         cStmt.execute();
         ResultSet rs = cStmt.getResultSet();
         while (rs.next()) {
-            System.out.println(rs.getString("Permission") + " -"
+            System.out.println(rs.getInt("Permission") + " -"
                     + rs.getString("Username")+ " - "+ rs.getString("Password"));
         }
         rs.close();

@@ -98,9 +98,9 @@ public class sshLinux implements Runnable {
     String org_host = "127.0.0.1";
 
     int port = 22;
-    String remotehost = "192.168.10.111";
-    String username = "vinh";
-    byte[] password = Tools.str2byte("123");
+    String remotehost;
+    String usernameSSH;
+    byte[] passwordSSH;
 
     private IO io;
     private IO iolinux;
@@ -115,13 +115,13 @@ public class sshLinux implements Runnable {
 
     ////////////////////////////////////////////////////////////////////////////    
     ////////////////////////////////////////////////////////////////////////////
-    public sshLinux(proxy.Proxy proxy, String _username, String _remotehost) throws ProxyException {
+    public sshLinux(proxy.Proxy proxy, String _remotehost) throws ProxyException {
 
         this.parent = this;
-        _proxy = proxy;        
+        _proxy = proxy;
         remotehost = _remotehost;
-        username = _username;
         
+
         io = new IO();
         iolinux = new IO();
     }
@@ -135,7 +135,6 @@ public class sshLinux implements Runnable {
             throw new ProxyException("session is already connected");
         }
 
-        
         if (random == null) {
             try {
                 Class c = Class.forName(getConfig("random"));
@@ -150,8 +149,7 @@ public class sshLinux implements Runnable {
             Logs.Println(proxy.Logger.INFO, "Connecting to " + remotehost + " port " + port);
         }
         isConnected = true;
-        
-        
+
         try {
             int i, j;
             {
@@ -423,7 +421,7 @@ public class sshLinux implements Runnable {
         } catch (Exception e) {
             in_kex = false;
             try {
-                
+
                 if (isConnected) {
                     String message = e.toString();
                     disconnectpacket(message);
@@ -445,8 +443,8 @@ public class sshLinux implements Runnable {
             }
             throw new ProxyException("Session.connect: " + e);
         } finally {
-            Tools.bzero(this.password);
-            this.password = null;
+            Tools.bzero(this.passwordSSH);
+            this.passwordSSH = null;
         }
 
     }
@@ -1036,7 +1034,6 @@ public class sshLinux implements Runnable {
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
-    
     public void disconnectpacket(String message) throws Exception {
         message = "Proxy Alert: " + message;
         packet.reset();
@@ -1049,17 +1046,16 @@ public class sshLinux implements Runnable {
 
     }
     //-------------------------------------
-    
+
     public void disconnect() {
         if (!isConnected) {
             return;
         }
         //System.err.println(this+": disconnect");
         //Thread.dumpStack();
-        
 
         isConnected = false;
-        
+
         try {
             if (iolinux != null) {
                 if (iolinux.in != null) {
@@ -1084,7 +1080,6 @@ public class sshLinux implements Runnable {
         //System.gc();
     }
 
-    
     ////////////////////////////////////////////////////////////////////////////
     private void setStream() {
         synchronized (parent) {
@@ -1201,7 +1196,7 @@ public class sshLinux implements Runnable {
     }
 
     public String getUserName() {
-        return username;
+        return usernameSSH;
     }
 
     public int getPort() {
@@ -1220,20 +1215,21 @@ public class sshLinux implements Runnable {
         this.port = port;
     }
 
-    void setUserName(String username) {
-        this.username = username;
+    public void setUserName(String username) {
+        this.usernameSSH = username;
     }
 
     public void setPassword(String password) {
         if (password != null) {
-            this.password = Tools.str2byte(password);
+            setPassword(Tools.str2byte(password));
         }
+
     }
 
-    public void setPassword(byte[] password) {
+    void setPassword(byte[] password) {
         if (password != null) {
-            this.password = new byte[password.length];
-            System.arraycopy(password, 0, this.password, 0, password.length);
+            this.passwordSSH = new byte[password.length];
+            System.arraycopy(password, 0, this.passwordSSH, 0, password.length);
         }
     }
 

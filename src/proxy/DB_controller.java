@@ -26,12 +26,16 @@ public class DB_controller {
             cStmt.setString(3, Remotehost);
             cStmt.execute();
             ResultSet rs = cStmt.getResultSet();
+            
             if(rs.next()==true) {
-                System.out.println(rs.getString("Permission") + " - "
-                        + rs.getString("Username") + " - " + rs.getString("Password"));
-            }
+                if(rs.getInt("Permission")==1){
+                    _proxy.UserSSH = rs.getString("Username");
+                    _proxy.PassSSH = rs.getString("Password");
+                }else{
+                    _proxy.Close();
+                }
+            }            
             rs.close();
-
         } else {
             _proxy.Close();
         }

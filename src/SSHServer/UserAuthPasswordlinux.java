@@ -35,8 +35,8 @@ class UserAuthPasswordlinux extends UserAuthlinux {
     public boolean start(sshLinux session) throws Exception {
         super.start(session);
         
-        byte[] password = session.password;
-        username = session.username;
+        byte[] password = session.passwordSSH;
+        username = session.usernameSSH;
         
         
         try {
