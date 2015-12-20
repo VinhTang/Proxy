@@ -18,7 +18,7 @@ public class DB_controller {
         Proxy _proxy = proxy;
         if (DB_controller.checkString(User) == true
                 && DB_controller.checkString(Pass) == true) {
-            Db_Connection.Open();
+
             Db_Connection.Open();
             CallableStatement cStmt = Db_Connection.con.prepareCall("{CALL checkUser(?,?,?)}");
             cStmt.setString(1, User);
@@ -26,17 +26,19 @@ public class DB_controller {
             cStmt.setString(3, Remotehost);
             cStmt.execute();
             ResultSet rs = cStmt.getResultSet();
-            
-            if(rs.next()==true) {
-                if(rs.getInt("Permission")==1){
+
+            if (rs.next() == true) {
+                if (rs.getInt("Permission") == 1) {
                     _proxy.UserSSH = rs.getString("Username");
                     _proxy.PassSSH = rs.getString("Password");
-                }else{
+                } else {
                     _proxy.Close();
                 }
-            }            
+            }
             rs.close();
+            Db_Connection.Open();
         } else {
+            Db_Connection.Open();
             _proxy.Close();
         }
 

@@ -7,6 +7,7 @@ package proxy;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 
 /**
  *
@@ -61,7 +62,6 @@ public class SOCK5 extends SOCK4 {
     public String Username = "";
     public String Password = "";
 
-    
     public String getPassword() {
         return Password;
     }
@@ -69,6 +69,7 @@ public class SOCK5 extends SOCK4 {
     public String getUsername() {
         return Username;
     }
+
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
     public SOCK5(Proxy proxy) {
@@ -115,7 +116,6 @@ public class SOCK5 extends SOCK4 {
         }
         if (Parent.Have_Authentication == true) {
             if (Methods.contains("-2-")) {
-                System.err.println("return true. CheckAuthentication() SOCK5");
                 return true;
             }
         }
@@ -146,18 +146,7 @@ public class SOCK5 extends SOCK4 {
     //-----------------------
     private void Authenticate() {
         GetUserInfo();
-        if (CheckAccess() == true) {
-            Parent.SendToClient(SRE_AuthSuccess);
-        } else {
-            Refuse_Authentication("Access Deny ");
-        }
-//
-//            //byte SRE_Connect[] = {(byte) 0x05, (byte) 0x00, (byte) 0x00, (byte) 0x01,(byte) 0x0C,(byte) 0xA8, (byte) 0x0A, (byte) 0x6F, (byte) 0x00, (byte) 0x00};
-//            byte SRE_Connect[] = {(byte) 0x05, (byte) 0x00, (byte) 0x00, (byte) 0x01, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x16};
-//            Parent.SendToClient(SRE_Connect);
-//            Thread.sleep(1000);
-//            byte SRE_SSH[] = {(byte) 0x53, (byte) 0x53, (byte) 0x48, (byte) 0x2d, (byte) 0x32, (byte) 0x2e, (byte) 0x30, (byte) 0x2d, (byte) 0x4f, (byte) 0x70, (byte) 0x65, (byte) 0x6e, (byte) 0x53, (byte) 0x53, (byte) 0x48, (byte) 0x5f, (byte) 0x35, (byte) 0x2e, (byte) 0x33, (byte) 0x0d, (byte) 0x0a};
-//            Parent.SendToClient(SRE_SSH);
+        Parent.SendToClient(SRE_AuthSuccess);
     }
     ////////////////////////////////////////////////////////////////////////////
 
@@ -188,6 +177,7 @@ public class SOCK5 extends SOCK4 {
         //Port
         DST_Port[0] = GetByte();
         DST_Port[1] = GetByte();
+
         //---------------------
         if (SOCKS_Version != SOCKS5_Version) {
             Logs.Println(Logger.ERROR, "SOCKS 5 - Incorrect SOCKS Version of Command: "
@@ -228,8 +218,6 @@ public class SOCK5 extends SOCK4 {
         byte b;
         int version = GetByte();
 
-        Logs.Println(Logger.DEBUG, Integer.toString(version)); //Version 0x01
-
         //USername
         int Userlen = Tools.byte2int(GetByte());
 
@@ -250,7 +238,6 @@ public class SOCK5 extends SOCK4 {
 //       Pass = Password.getBytes();
 //        Password = Tools.byte2str(User);
 
-        Logs.Println(Logger.DEBUG, "Username: " + User + " .Password: " + Password);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -293,9 +280,45 @@ public class SOCK5 extends SOCK4 {
 
     private boolean CheckAccess() {
         //temp access
-        Logs.Println(Logger.DEBUG, "WARNING: Atennd to check this access()");
+
         return true;
     }
     ////////////////////////////////////////////////////////////////////////////
 
+    public boolean Calculate_Address() {
+        Calculate_AddressSOCK(ATYP);
+        return true;
+    }
+
+    public void Calculate_AddressSOCK(byte AType) {
+
+        switch (AType) {
+            // Version IP 4
+            case 0x01:
+                RemoteHost = Tools.calcInetAddress(DST_Addr);
+                RemotePort = Tools.calcPort(DST_Port);
+                break;
+            // Version IP DOMAIN NAME
+            case 0x03:
+
+                if (DST_Addr[0] <= 0) {
+                    Logs.Println(Logger.ERROR, "SOCKS 5 - calcInetAddress() : BAD IP in command - size : " + DST_Addr[0]);
+                    return;
+                }
+                String sIA = "";
+
+                for (int i = 1; i <= DST_Addr[0]; i++) {
+                    sIA += (char) DST_Addr[i];
+
+                }
+
+                RemoteHost = sIA;
+                RemotePort = Tools.calcPort(DST_Port);
+                break;
+
+        }
+
+    }
+
+    /////////////////////////////////////////////////////////////////	
 }

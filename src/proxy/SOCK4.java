@@ -144,18 +144,8 @@ public class SOCK4 {
     //4. create ssh connect to proxy
     //5. transfer data from client to server
     public void Reply_Connect() throws Exception {
-        Logs.Println(Logger.DEBUG, "Connecting... ");
-        //	Connect to the Remote Host
+      
 
-//        try {
-//            Parent.ConnectToServer(ServerIP.getHostAddress(), ServerPort);
-//
-//        } catch (IOException e) {
-//            Refuse_Command(getFailCode()); // Connection Refuseds
-//            throw new Exception("Socks 4 - Can't connect to "
-//                    + Logs.getSocketInfo(Parent.ServerSocket));
-//        }
-//
         Logs.Println(Logger.INFO, "Connected to " + Logs.getSocketInfo(Parent.LinuxSocket));
         Reply_Command(getSuccessCode());
 

@@ -106,8 +106,8 @@ public class sshServer {
 
     private long kex_start_time = 0L;
 
-     int max_auth_tries = 6;
-     int auth_failures = 0;
+    int max_auth_tries = 6;
+    int auth_failures = 0;
 
     IO io = null;
     IO iolinux = null;
@@ -372,6 +372,8 @@ public class sshServer {
             }
 
             ua = null;
+            auth = false;
+            auth_cancel = false;
             try {
                 Class c = Class.forName(getConfig("userauth.none"));
                 ua = (UserAuth) (c.newInstance());
@@ -379,6 +381,8 @@ public class sshServer {
                 throw new ProxyException(e.toString(), e);
             }
             auth = ua.start(this);
+//            auth_cancel = true;
+
 
             String smethods = null;
             if (auth == true) {
@@ -460,8 +464,7 @@ public class sshServer {
 //            }
 //            System.err.println(sb.toString());
             //------------------------------------------------------------------
-            auth = false;
-            auth_cancel = false;
+
             while (auth_cancel == false) {
                 if (ua != null) {
                     try {
@@ -573,7 +576,7 @@ public class sshServer {
         if (not_available != null && not_available.length > 0) {
             cipherc2s = Tools.diffString(cipherc2s, not_available);
             ciphers2c = Tools.diffString(ciphers2c, not_available);
-            
+
             if (cipherc2s == null || ciphers2c == null) {
                 Logs.Println(proxy.Logger.ERROR, "There are not any available ciphers.");
             }
@@ -644,7 +647,6 @@ public class sshServer {
         if (!isConnected) {
             return;
         }
-        
 
         try {
             if (io != null) {
@@ -799,8 +801,7 @@ public class sshServer {
             return null;
         }
 
-       // Logs.Println(proxy.Logger.DEBUG, "CheckCiphers: " + ciphers);
-
+        // Logs.Println(proxy.Logger.DEBUG, "CheckCiphers: " + ciphers);
         java.util.Vector result = new java.util.Vector();
         String[] _ciphers = proxy.Tools.split(ciphers, ",");
 
@@ -820,7 +821,6 @@ public class sshServer {
 //        for (int i = 0; i < foo.length; i++) {
 //            Logs.Println(proxy.Logger.DEBUG, foo[i] + " is not available.");
 //        }
-
         return foo;
     }
 

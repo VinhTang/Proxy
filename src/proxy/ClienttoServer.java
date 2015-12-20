@@ -39,6 +39,7 @@ public class ClienttoServer extends Thread {
         int dlen = 0;
         boolean Active = true;
         Buffer _buflog = new Buffer(1024); // manual configure
+        _buflog.reset();
         while (Active == true) {
             try {
                 //============================
@@ -69,13 +70,17 @@ public class ClienttoServer extends Thread {
                                 break;
 
                             case 127:  // del
-                                if (_buflog.s != 0) {
-                                    _buflog.skip(-1);
+                                if (_buflog.s > 0) {
+
+                                    _buflog.s = _buflog.s - 1;
+                                    _buflog.buffer[_buflog.s] = 0x00;
+//                                    _buflog.skip(-1);
                                 }
                                 break;
-
                             default:
-                                _buflog.putByte(b[0]);
+                                if (b[0] > 32 && b[0] != 127) { 
+                                    _buflog.putByte(b[0]);
+                                }
                                 break;
 
                         }

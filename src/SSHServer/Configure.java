@@ -118,7 +118,8 @@ public class Configure {
 
         config.put("StrictHostKeyChecking", "ask");
         config.put("HashKnownHosts", "no");
-
+        
+//        config.put("PreferredAuthentications", "none");
         config.put("PreferredAuthentications", "password");
 
         config.put("CheckCiphers", "aes256-ctr,aes192-ctr,aes128-ctr,aes256-cbc,aes192-cbc,aes128-cbc,3des-ctr,arcfour,arcfour128,arcfour256");

@@ -38,8 +38,10 @@ public class Proxy extends Thread {
 
     protected String Username = null;
     protected String Password = null;
+
     ////////////////////////////////////////////////////////////////////////////
     //get Method
+
     public String getRemoteHost() {
         return RemoteHost;
     }
@@ -165,14 +167,15 @@ public class Proxy extends Thread {
             communicator.GetClientCommand();
             Username = communicator.getUsername();
             Password = communicator.getPassword();
+            RemoteHost = communicator.getRemoteHost();
+            RemotePort = communicator.getRemotePort();
             //-------------------------------------------------------
             Logs.Println(Logger.INFO, "Accepted SOCKS " + SOCKVersion + " Request! ");
             DB_controller.CheckUser(this, Username, Password, RemoteHost);
-            
+
             //---------SSH CONNECT-------------------------------------
-            RemoteHost = communicator.getRemoteHost();
-            RemotePort = communicator.getRemotePort();
             
+
             // sshserver check username/pass ? setRemotehost, of Proxy class : disconnect in sshserver
             if (ConnectToServer(RemoteHost, RemotePort) == false) {
                 this.Close();
@@ -182,7 +185,7 @@ public class Proxy extends Thread {
             LinuxSide = new sshLinux(this, RemoteHost);
             LinuxSide.setUserName(UserSSH);
             LinuxSide.setPassword(PassSSH);
-            
+
             //start communication with sshServer
             isConnected = true;
             boolean server = false;
@@ -202,11 +205,9 @@ public class Proxy extends Thread {
                     }
             }
 
-            while (true) {
-                if (server == true && linux == true) {
-                    Relay();
-                    break;
-                }
+            if (server == true && linux == true) {
+                Relay();
+
             }
         } catch (Exception e) {
         }

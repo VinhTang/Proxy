@@ -1,4 +1,3 @@
-
 package SSHServer;
 
 import proxy.Tools;
@@ -58,7 +57,7 @@ class UserAuthNone extends UserAuth {
             byte[] methodsname = buf.getString();
 
             //------------------------------------------------------------------
-            //--------send Auth Method of sshServer (50)---------------------------
+            //--------send Auth Method of sshServer (50)------------------------
             buf.reset();
             packet.reset();
             methods = session.GetPreferredAuthentications();
@@ -66,6 +65,10 @@ class UserAuthNone extends UserAuth {
             buf.putString(Tools.str2byte(methods));
             buf.putByte((byte) 0);
             session.write(packet);
+
+//            buf.putByte((byte) SSH_MSG_USERAUTH_SUCCESS);
+//            session.write(packet);
+            
             //------------------------------------------------------------------
 
             return true;

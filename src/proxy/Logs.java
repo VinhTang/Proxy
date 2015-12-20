@@ -136,6 +136,7 @@ public class Logs {
         public void logclient(int level, String message) {
             dateFormat = new SimpleDateFormat("MMM dd,yyyy HH:mm:ssa");
             date = new Date();
+            
             //            System.out.println(dateFormat.format(date));
             Exception e = new Exception();
             switch (level) {
