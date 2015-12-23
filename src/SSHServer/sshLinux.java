@@ -120,7 +120,6 @@ public class sshLinux implements Runnable {
         this.parent = this;
         _proxy = proxy;
         remotehost = _remotehost;
-        
 
         io = new IO();
         iolinux = new IO();
@@ -146,7 +145,7 @@ public class sshLinux implements Runnable {
         Packet.setRandom(random);
 
         if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-            Logs.Println(proxy.Logger.INFO, "Connecting to " + remotehost + " port " + port);
+            Logs.Println(proxy.Logger.INFO, "Connecting to " + remotehost + " port " + port, true);
         }
         isConnected = true;
 
@@ -215,9 +214,9 @@ public class sshLinux implements Runnable {
 
             if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
                 Logs.Println(proxy.Logger.INFO,
-                        "Remote version string: " + Tools.byte2str(V_S));
+                        "Remote version string: " + Tools.byte2str(V_S), true);
                 Logs.Println(proxy.Logger.INFO,
-                        "Local version string: " + Tools.byte2str(V_C));
+                        "Local version string: " + Tools.byte2str(V_C), true);
             }
 
             send_kexinit();
@@ -229,8 +228,8 @@ public class sshLinux implements Runnable {
             }
 
             if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-                Logs.Println(proxy.Logger.INFO,
-                        "SSH_MSG_KEXINIT received");
+                Logs.Println(proxy.Logger.DEBUG,
+                        "SSH_MSG_KEXINIT received", true);
             }
 
             KeyExchangelinux kex = receive_kexinit(buf);
@@ -263,8 +262,8 @@ public class sshLinux implements Runnable {
             if (buf.getCommand() == SSH_MSG_NEWKEYS) {
 
                 if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-                    Logs.Println(proxy.Logger.INFO,
-                            "SSH_MSG_NEWKEYS received");
+                    Logs.Println(proxy.Logger.DEBUG,
+                            "SSH_MSG_NEWKEYS received", true);
                 }
 
                 receive_newkeys(buf, kex);
@@ -343,10 +342,7 @@ public class sshLinux implements Runnable {
                                 str += ",";
                             }
                         }
-                        Logs.Println(proxy.Logger.INFO,
-                                str);
-                        Logs.Println(proxy.Logger.INFO,
-                                "Next authentication method: " + method);
+
                     }
 
                     ua = null;
@@ -360,7 +356,7 @@ public class sshLinux implements Runnable {
                     } catch (Exception e) {
                         if (Logs.getLogger().isEnabled(proxy.Logger.WARN)) {
                             Logs.Println(proxy.Logger.WARN,
-                                    "failed to load " + method + " method");
+                                    "failed to load " + method + " method", true);
                         }
                     }
 
@@ -368,9 +364,9 @@ public class sshLinux implements Runnable {
                         auth_cancel = false;
                         try {
                             auth = ua.start(this);
-                            if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-                                Logs.Println(proxy.Logger.INFO,
-                                        "Authentication succeeded (" + method + ").");
+                            if (Logs.getLogger().isEnabled(proxy.Logger.DEBUG)) {
+                                Logs.Println(proxy.Logger.DEBUG,
+                                        "Authentication succeeded (" + method + ").", true);
                             }
                         } catch (ProxyAuthCancelException ee) {
                             auth_cancel = true;
@@ -393,7 +389,7 @@ public class sshLinux implements Runnable {
                             //System.err.println("ee: "+ee); // SSH_MSG_DISCONNECT: 2 Too many authentication failures
                             if (Logs.getLogger().isEnabled(proxy.Logger.WARN)) {
                                 Logs.Println(proxy.Logger.WARN,
-                                        "an exception during authentication\n" + ee.toString());
+                                        "an exception during authentication\n" + ee.toString(), true);
                             }
                             break loop;
                         }
@@ -406,7 +402,7 @@ public class sshLinux implements Runnable {
                 if (auth_failures >= max_auth_tries) {
                     if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
                         Logs.Println(proxy.Logger.INFO,
-                                "Login trials exceeds " + max_auth_tries);
+                                "Login trials exceeds " + max_auth_tries, true);
                     }
                 }
                 if (auth_cancel) {
@@ -416,7 +412,7 @@ public class sshLinux implements Runnable {
             }
 
             isAuthed = true;
-            Logs.Println(proxy.Logger.INFO, "Connect success to Linux remotehost " + remotehost);
+            Logs.Println(proxy.Logger.INFO, "Connect success to Linux remotehost " + remotehost, true);
             return true;
         } catch (Exception e) {
             in_kex = false;
@@ -575,7 +571,7 @@ public class sshLinux implements Runnable {
 
         if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
             Logs.Println(proxy.Logger.INFO,
-                    "SSH_MSG_KEXINIT sent");
+                    "SSH_MSG_KEXINIT sent", true);
         }
     }
 
@@ -587,7 +583,7 @@ public class sshLinux implements Runnable {
 
         if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
             Logs.Println(proxy.Logger.INFO,
-                    "SSH_MSG_NEWKEYS sent");
+                    "SSH_MSG_NEWKEYS sent", true);
         }
     }
 
@@ -804,7 +800,7 @@ public class sshLinux implements Runnable {
             if ((need % s2ccipher_size) != 0) {
                 String message = "Bad packet length " + need;
                 if (Logs.getLogger().isEnabled(proxy.Logger.FATAL)) {
-                    Logs.Println(proxy.Logger.INFO, message);
+                    Logs.Println(proxy.Logger.INFO, message, true);
                 }
                 start_discard(buf, s2ccipher, s2cmac, j, PACKET_MAX_SIZE - s2ccipher_size);
             }
@@ -871,7 +867,7 @@ public class sshLinux implements Runnable {
                 int reason_id = buf.getInt();
                 if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
                     Logs.Println(proxy.Logger.INFO,
-                            "Received SSH_MSG_UNIMPLEMENTED for " + reason_id);
+                            "Received SSH_MSG_UNIMPLEMENTED for " + reason_id, true);
                 }
             } else if (type == SSH_MSG_DEBUG) {
                 buf.rewind();
@@ -1239,11 +1235,6 @@ public class sshLinux implements Runnable {
             return null;
         }
 
-        if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-            Logs.Println(proxy.Logger.INFO,
-                    "CheckCiphers: " + ciphers);
-        }
-
         String cipherc2s = getConfig("cipher.c2s");
         String ciphers2c = getConfig("cipher.s2c");
 
@@ -1263,13 +1254,6 @@ public class sshLinux implements Runnable {
         }
         String[] foo = new String[result.size()];
         System.arraycopy(result.toArray(), 0, foo, 0, result.size());
-
-        if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-            for (int i = 0; i < foo.length; i++) {
-                Logs.Println(proxy.Logger.INFO,
-                        foo[i] + " is not available.");
-            }
-        }
 
         return foo;
     }
@@ -1292,11 +1276,6 @@ public class sshLinux implements Runnable {
             return null;
         }
 
-        if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-            Logs.Println(proxy.Logger.INFO,
-                    "CheckKexes: " + kexes);
-        }
-
         java.util.Vector result = new java.util.Vector();
         String[] _kexes = Tools.split(kexes, ",");
         for (int i = 0; i < _kexes.length; i++) {
@@ -1309,13 +1288,6 @@ public class sshLinux implements Runnable {
         }
         String[] foo = new String[result.size()];
         System.arraycopy(result.toArray(), 0, foo, 0, result.size());
-
-        if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-            for (int i = 0; i < foo.length; i++) {
-                Logs.Println(proxy.Logger.INFO,
-                        foo[i] + " is not available.");
-            }
-        }
 
         return foo;
     }
@@ -1336,11 +1308,6 @@ public class sshLinux implements Runnable {
             return null;
         }
 
-        if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-            Logs.Println(proxy.Logger.INFO,
-                    "CheckSignatures: " + sigs);
-        }
-
         java.util.Vector result = new java.util.Vector();
         String[] _sigs = Tools.split(sigs, ",");
         for (int i = 0; i < _sigs.length; i++) {
@@ -1357,12 +1324,6 @@ public class sshLinux implements Runnable {
         }
         String[] foo = new String[result.size()];
         System.arraycopy(result.toArray(), 0, foo, 0, result.size());
-        if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-            for (int i = 0; i < foo.length; i++) {
-                Logs.Println(proxy.Logger.INFO,
-                        foo[i] + " is not available.");
-            }
-        }
         return foo;
     }
 

@@ -71,9 +71,7 @@ public class Configure {
         config.put("hmac-sha1", "SSHServer.jce.HMACSHA1");
         config.put("hmac-sha1-96", "SSHServer.jce.HMACSHA196");
         config.put("hmac-sha2-256", "SSHServer.jce.HMACSHA256");
-        // The "hmac-sha2-512" will require the key-length 2048 for DH,
-        // but Sun's JCE has not allowed to use such a long key.
-        //config.put("hmac-sha2-512",  "SSHServer.jce.HMACSHA512");
+
         config.put("hmac-md5", "SSHServer.jce.HMACMD5");
         config.put("hmac-md5-96", "SSHServer.jce.HMACMD596");
         config.put("sha-1", "SSHServer.jce.SHA1");
@@ -119,8 +117,8 @@ public class Configure {
         config.put("StrictHostKeyChecking", "ask");
         config.put("HashKnownHosts", "no");
         
-//        config.put("PreferredAuthentications", "none");
-        config.put("PreferredAuthentications", "password");
+        config.put("PreferredAuthentications", "none");
+//        config.put("PreferredAuthentications", "password");
 
         config.put("CheckCiphers", "aes256-ctr,aes192-ctr,aes128-ctr,aes256-cbc,aes192-cbc,aes128-cbc,3des-ctr,arcfour,arcfour128,arcfour256");
         config.put("CheckKexes", "diffie-hellman-group14-sha1,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521");

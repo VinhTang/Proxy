@@ -1,11 +1,13 @@
 package proxy;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+
 /*
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-
 /**
  *
  * @author Milky_Way
@@ -20,6 +22,13 @@ public interface Logger {
 
     public boolean isEnabled(int level);
 
-    public void logproxy(int level, String message);
-    public void logclient(int level, String message);
+    public void setUsername(String user);
+
+    public void setLogProxy();
+
+    public void setLogUser();
+
+    public void logproxy(int level, String message, boolean bool);
+
+    public void logclient(int level, String message, boolean bool);
 }

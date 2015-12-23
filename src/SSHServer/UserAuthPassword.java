@@ -29,7 +29,7 @@ class UserAuthPassword extends UserAuth {
                 sha = (HASH) (c.newInstance());
                 sha.init();
             } catch (Exception ee) {
-                proxy.Logs.Println(proxy.Logger.ERROR, ee.toString());
+                
             }
 
             if (session.firstcheck == true) {
@@ -97,7 +97,7 @@ class UserAuthPassword extends UserAuth {
                 return false;
             }
         } catch (IOException ee) {
-            proxy.Logs.Println(proxy.Logger.ERROR, "Error: " + ee.toString());
+
             session.auth_failures = 5;
             return false;
         }

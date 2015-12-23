@@ -356,7 +356,7 @@ public class KeyPairPKCS8 extends KeyPair {
             } else {
                 message = "function " + name + " is not supported";
             }
-            proxy.Logs.Println(proxy.Logger.FATAL, "PKCS8: " + message);
+            
 
         }
 

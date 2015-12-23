@@ -71,9 +71,10 @@ public class DHGEX extends KeyExchange {
         buf.putInt(max);
         session.write(packet);
 
-        proxy.Logs.Println(proxy.Logger.INFO, "SSH_MSG_KEX_DH_GEX_REQUEST(" + min + "<" + preferred + "<" + max + ") sent");
+        proxy.Logs.Println(proxy.Logger.INFO, "SSH_MSG_KEX_DH_GEX_REQUEST("
+                + min + "<" + preferred + "<" + max + ") sent", true);
         proxy.Logs.Println(proxy.Logger.INFO,
-                "expecting SSH_MSG_KEX_DH_GEX_GROUP");
+                "expecting SSH_MSG_KEX_DH_GEX_GROUP", true);
 
         state = SSH_MSG_KEX_DH_GEX_GROUP;
     }
@@ -111,13 +112,13 @@ public class DHGEX extends KeyExchange {
                 session.write(packet);
 
                 proxy.Logs.Println(proxy.Logger.INFO,
-                        "SSH_MSG_KEX_DH_GEX_INIT sent");
+                        "SSH_MSG_KEX_DH_GEX_INIT sent", true);
                 proxy.Logs.Println(proxy.Logger.INFO,
-                        "expecting SSH_MSG_KEX_DH_GEX_REPLY");
+                        "expecting SSH_MSG_KEX_DH_GEX_REPLY", true);
 
                 state = SSH_MSG_KEX_DH_GEX_REPLY;
                 return true;
-        //break;
+            //break;
 
             case SSH_MSG_KEX_DH_GEX_REPLY:
                 // The server responds with:
@@ -220,5 +221,4 @@ public class DHGEX extends KeyExchange {
         return _max;
     }
 
-  
 }

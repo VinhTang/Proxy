@@ -5,7 +5,7 @@
  */
 package proxy;
 
-import java.net.InetAddress;
+
 
 /**
  *
@@ -80,7 +80,6 @@ public class SOCK4 {
     ////////////////////////////////////////////////////////////////////////////
     public SOCK4(Proxy proxy) {
         Parent = proxy;
-
         DST_Addr = new byte[4];
         DST_Port = new byte[2];
     }
@@ -108,7 +107,7 @@ public class SOCK4 {
             UserID += (char) b;
         }
         Calculate_Username();
-
+        Logs.getLogger().setUsername(UserID);
         //------------------------
         if ((Command < SC_CONNECT)) {
             Refuse_Command((byte) 91);
@@ -120,7 +119,7 @@ public class SOCK4 {
 
         }
 
-        Logs.Println(Logger.INFO, "Accepted SOCKS 4 Command: \"" + commName(Command) + "\"");
+        Logs.Println(Logger.INFO, "Accepted SOCKS 4 Command: \"" + commName(Command) + "\"",true);
 
     }
 
@@ -146,7 +145,7 @@ public class SOCK4 {
     public void Reply_Connect() throws Exception {
       
 
-        Logs.Println(Logger.INFO, "Connected to " + Logs.getSocketInfo(Parent.LinuxSocket));
+        Logs.Println(Logger.INFO, "Connected to " + Logs.getSocketInfo(Parent.LinuxSocket),true);
         Reply_Command(getSuccessCode());
 
     }
@@ -156,7 +155,7 @@ public class SOCK4 {
         UserID = UserID + " ";
         //UserID = s.getBytes();
 
-        Logs.Println(Logger.DEBUG, "USERID : " + UserID);
+        
         // Send USerID to check role
         //UserID[UserID.length - 1] = 0x00;
     }
@@ -167,12 +166,12 @@ public class SOCK4 {
         RemoteHost = Tools.calcInetAddress(DST_Addr);
         RemotePort = Tools.calcPort(DST_Port);
 
-        Logs.Println(Logger.INFO, "RemoteHost/RemotePort: " + RemoteHost + "/" + RemotePort);
+        Logs.Println(Logger.INFO, "RemoteHost/RemotePort: " + RemoteHost + "/" + RemotePort,true);
 
         Host = Parent.ClientSocket.getInetAddress().toString();
         HostPort = Parent.ClientSocket.getPort();
 
-        Logs.Println(Logger.INFO, "Host/HostPort: " + Host + "/" + HostPort);
+        Logs.Println(Logger.INFO, "Host/HostPort: " + Host + "/" + HostPort,true);
         if ((RemoteHost != null) && (RemotePort >= 0)) {
             return true;
         } else {
@@ -181,19 +180,20 @@ public class SOCK4 {
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    public void AuthenticateVersion(byte SOCK_Ver) throws Exception {
+    public boolean  AuthenticateVersion(byte SOCK_Ver) throws Exception {
         SOCKS_Version = SOCK_Ver;
+        return true;
     }
 
     ////////////////////////////////////////////////////////////////////////////
     protected void Refuse_Command(byte ErrorCode) {
-        Logs.Println(Logger.INFO, "Socks 4 - Refuse Command: \"" + ReplyName(ErrorCode) + "\"");
+        Logs.Println(Logger.INFO, "Socks 4 - Refuse Command: \"" + ReplyName(ErrorCode) + "\"",true);
         Reply_Command(ErrorCode);
     }	// Refuse_Command()
 
     //-------------------------------------
     public void Reply_Command(byte ReplyCode) {
-        Logs.Println(Logger.INFO, "Socks 4 reply: \"" + ReplyName(ReplyCode) + "\"");
+        Logs.Println(Logger.INFO, "Socks 4 reply: \"" + ReplyName(ReplyCode) + "\"",true);
 
         byte[] REPLY = new byte[8];
         REPLY[0] = 0;

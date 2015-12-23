@@ -9,9 +9,7 @@ import SSHServer.Buffer;
 import SSHServer.Packet;
 import SSHServer.sshLinux;
 import SSHServer.sshServer;
-import java.awt.event.KeyEvent;
 import java.io.IOException;
-import java.util.LinkedList;
 import java.util.Queue;
 
 public class ClienttoServer extends Thread {
@@ -30,8 +28,7 @@ public class ClienttoServer extends Thread {
         LinuxSide = linux;
         ServerSide = server;
         buf = new Buffer();
-        packet = new Packet(buf);
-        //queue = new LinkedList<Byte>();
+        packet = new Packet(buf);        
     }
 
     @Override
@@ -66,14 +63,14 @@ public class ClienttoServer extends Thread {
                                 }
                                 _buflog.reset();
                                 System.arraycopy(foo, 0, foo, 0, j);
-                                Logs.Println(proxy.Logger.INFO, Tools.byte2str(foo));
+                                Logs.Println(proxy.Logger.INFO, "Command:"+Tools.byte2str(foo),true);
                                 break;
 
                             case 127:  // del
-                                if (_buflog.s > 0) {
+                                if (_buflog.index > 0) {
 
-                                    _buflog.s = _buflog.s - 1;
-                                    _buflog.buffer[_buflog.s] = 0x00;
+                                    _buflog.index = _buflog.index - 1;
+                                    _buflog.buffer[_buflog.index] = 0x00;
 //                                    _buflog.skip(-1);
                                 }
                                 break;
@@ -86,9 +83,7 @@ public class ClienttoServer extends Thread {
                         }
 
                     }
-                    if (lendata > 1) {
-                        System.err.println(Tools.byte2str(b));
-                        System.err.println(Tools.byte2hexstr(b));
+                    if (lendata > 1) {                        
                         for (int i = 0; i < lendata; i++) {
                             _buflog.putByte(b[i]);
                         }

@@ -7,7 +7,6 @@ package proxy;
 
 import java.io.IOException;
 import java.net.InetAddress;
-import java.net.UnknownHostException;
 
 /**
  *
@@ -79,7 +78,7 @@ public class SOCK5 extends SOCK4 {
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    public void AuthenticateVersion(byte SOCKS_Ver)
+    public boolean AuthenticateVersion(byte SOCKS_Ver)
             throws Exception {
 
         super.AuthenticateVersion(SOCKS_Ver); // Sets SOCKS Version...
@@ -88,16 +87,18 @@ public class SOCK5 extends SOCK4 {
             if (Check_Authentication() == true) {
                 Reply_Auth(true);
                 Authenticate();
+                return true;
             } else {
-                System.err.println("nho sua lai cho nay");
 //                Refuse_Authentication("SOCKS 5 - Not Supported Authentication!");
                 Reply_Auth(false);
-                return;
+                return false;
             }
+
         } else {
             Refuse_Authentication("Incorrect SOCKS version : " + SOCKS_Version);
             throw new Exception("Not Supported SOCKS Version -'"
                     + SOCKS_Version + "'");
+            
         }
 
     }
@@ -125,7 +126,7 @@ public class SOCK5 extends SOCK4 {
     //-----------------------
     public void Refuse_Authentication(String msg) {
 
-        Logs.Println(Logger.ERROR, "SOCKS 5 - Refuse Authentication: '" + msg + "'");
+        Logs.PrintlnProxy(Logger.ERROR, "SOCKS 5 - Refuse Authentication: '" + msg + "'",true);
         Parent.SendToClient(SRE_Refuse);
         Parent.Close();
     }
@@ -134,11 +135,11 @@ public class SOCK5 extends SOCK4 {
     private void Reply_Auth(boolean flag) throws IOException {
         if (flag == true) {
             Parent.SendToClient(SRE_Auth);
-            Logs.Println(Logger.INFO, "SOCK5 authentication method establish!");
+//            Logs.PrintlnProxy(Logger.INFO, "SOCK5 authentication method establish!");
         }
         if (flag == false) {
             Parent.SendToClient(SRE_NoAuth);
-            Logs.Println(Logger.ERROR, "SOCK5 not support authentication method!");
+//            Logs.PrintlnProxy(Logger.ERROR, "SOCK5 not support authentication method!");
         }
 
     }
@@ -146,6 +147,7 @@ public class SOCK5 extends SOCK4 {
     //-----------------------
     private void Authenticate() {
         GetUserInfo();
+        Logs.getLogger().setUsername(Username);
         Parent.SendToClient(SRE_AuthSuccess);
     }
     ////////////////////////////////////////////////////////////////////////////
@@ -181,26 +183,26 @@ public class SOCK5 extends SOCK4 {
         //---------------------
         if (SOCKS_Version != SOCKS5_Version) {
             Logs.Println(Logger.ERROR, "SOCKS 5 - Incorrect SOCKS Version of Command: "
-                    + SOCKS_Version);
+                    + SOCKS_Version,true);
             Refuse_Command((byte) 0xFF);
             throw new Exception("Incorrect SOCKS Version of Command: "
                     + SOCKS_Version);
         }
 
         if ((Command < SC_CONNECT) || (Command > SC_UDP)) {
-            Logs.Println(Logger.ERROR, "SOCKS 5 - GetClientCommand() - Unsupported Command : \"" + commName(Command) + "\"");
+            Logs.Println(Logger.ERROR, "SOCKS 5 - GetClientCommand() - Unsupported Command : \"" + commName(Command) + "\"",true);
             Refuse_Command((byte) 0x07);
             throw new Exception("SOCKS 5 - Unsupported Command: \"" + Command + "\"");
         }
 
         if (ATYP == 0x04) {
-            Logs.Println(Logger.ERROR, "SOCKS 5 - GetClientCommand() - Unsupported Address Type - IP v6");
+            Logs.Println(Logger.ERROR, "SOCKS 5 - GetClientCommand() - Unsupported Address Type - IP v6",true);
             Refuse_Command((byte) 0x08);
             throw new Exception("Unsupported Address Type - IP v6");
         }
 
         if ((ATYP >= 0x04) || (ATYP <= 0)) {
-            Logs.Println(Logger.ERROR, "SOCKS 5 - GetClientCommand() - Unsupported Address Type: " + ATYP);
+            Logs.Println(Logger.ERROR, "SOCKS 5 - GetClientCommand() - Unsupported Address Type: " + ATYP,true);
             Refuse_Command((byte) 0x08);
             throw new Exception("SOCKS 5 - Unsupported Address Type: " + ATYP);
         }
@@ -210,7 +212,7 @@ public class SOCK5 extends SOCK4 {
             throw new Exception("SOCKS 5 - Unknown Host/IP address '" + RemoteHost.toString() + "'");
         }
 
-        Logs.Println(Logger.INFO, "SOCKS 5 - Accepted SOCKS5 Command: \"" + commName(Command) + "\"");
+        Logs.Println(Logger.INFO, "SOCKS 5 - Accepted SOCKS5 Command: \"" + commName(Command) + "\"",true);
     }
 
     //--------------------
@@ -302,7 +304,7 @@ public class SOCK5 extends SOCK4 {
             case 0x03:
 
                 if (DST_Addr[0] <= 0) {
-                    Logs.Println(Logger.ERROR, "SOCKS 5 - calcInetAddress() : BAD IP in command - size : " + DST_Addr[0]);
+                    Logs.Println(Logger.ERROR, "SOCKS 5 - calcInetAddress() : BAD IP in command - size : " + DST_Addr[0],true);
                     return;
                 }
                 String sIA = "";

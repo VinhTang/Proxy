@@ -35,7 +35,7 @@ public class SOCKServer extends Thread {
 
     public void run() {
 
-        Logs.PrintlnProxy(Logger.INFO, "SOCKS Server Start Listen !");
+        Logs.PrintlnProxy(Logger.INFO, "SOCKS Server Start Listen !",true);
         SetBucket(this);
         Listen();
 
@@ -46,10 +46,10 @@ public class SOCKServer extends Thread {
         try {
             PrepareToListen();
         } catch (java.net.BindException e) {
-            Logs.PrintlnProxy(Logger.ERROR, "The Port " + listenPort + " is in use !" + e);
+            Logs.PrintlnProxy(Logger.ERROR, "The Port " + listenPort + " is in use !" + e,true);
             return;
         } catch (IOException e) {
-            Logs.PrintlnProxy(Logger.ERROR, "IO Error Binding at port : " + listenPort + e);
+            Logs.PrintlnProxy(Logger.ERROR, "IO Error Binding at port : " + listenPort + e,true);
             return;
         }
         while (isActive()) {
@@ -67,7 +67,7 @@ public class SOCKServer extends Thread {
             if (listenPort == 0) {
                 listenPort = ListenSocket.getLocalPort();
             }
-            Logs.PrintlnProxy(Logger.INFO, "SOCKS SERVER Listen at Port: " + listenPort);
+            Logs.PrintlnProxy(Logger.INFO, "SOCKS SERVER Listen at Port: " + listenPort,true);
         }
     }
     ////////////////////////////////////////////////////////////////////////////
@@ -90,7 +90,8 @@ public class SOCKServer extends Thread {
                 Socket ClientSocket = ListenSocket.accept();
                 ClientSocket.setSoTimeout(DEFAULT_TIMEOUT);
 
-                Logs.PrintlnProxy(Logger.INFO, "Connection from: " + Logs.getSocketInfo(ClientSocket));
+                Logs.PrintlnProxy(Logger.INFO, "Connection from: " + Logs.getSocketInfo(ClientSocket),true);
+                Logs.PrintlnProxy(Logger.INFO, "Connection from: " + Logs.getSocketInfo(ClientSocket),false);
                 Proxy proxy = null;
                 if (SSHProxy.ClientLog == true) {
                     proxy = new Proxy(this, ClientSocket, true);
@@ -106,11 +107,26 @@ public class SOCKServer extends Thread {
     }
 
     ////////////////////////////////////////////////////////////////////////////
-
     protected void addSession(Proxy proxy) {
         synchronized (session) {
             session.addElement(proxy);
         }
+        countSession();
     }
-    ////////////////////////////////////////////////////////////////////////////
+
+    protected int countSession() {
+        int count = session.size();
+        System.err.println("count:" + count);
+        return count;
+    }
+
+    protected void removeSession(Proxy proxy) {
+        synchronized (session) {
+            session.remove(proxy);
+        }
+        countSession();
+    }
+
 }
+    ////////////////////////////////////////////////////////////////////////////
+

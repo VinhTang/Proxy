@@ -19,8 +19,6 @@ public class SSHProxy {
     public static final int DEFAULT_PORT = 1080;
     public static int listen_Port = DEFAULT_PORT;
 
-    //public static String Proxy_host = "192.168.10.111";
-    //public static int Proxy_host_port = 22;
     public static boolean UseSSHProxy = true;
     public static boolean ProxyLog = true;
     public static boolean ClientLog = true;
@@ -29,18 +27,12 @@ public class SSHProxy {
 
     public static boolean LoadProperties() {
 
-//        if (Proxy_host == null || Proxy_host.length() <= 0 || Proxy_host_port <= 0) {
-//            ErrorMsg = "Invaild setting for SSH Proxy ! Use of SSH Proxy Disabled !";
-//            UseSSHProxy = false;
-//        }
-//        EnableLog = Tools.LoadBoolean("EnableLog", true, Prop);
         if (ProxyLog == true) {
             Logs.setLogger(new Logs.ProxyLog());
+            Logs.setLogProxys();
 
-            Logs.PrintlnProxy(Logger.INFO, "Proxy SSH"
-                    + "\n---------------------------------------\n"
-                    + "    SOCKS Proxy Port : " + listen_Port
-                    + "\n---------------------------------------\n");
+            Logs.PrintlnProxy(Logger.INFO, "name:Proxy SSH; ListenPort:" + listen_Port + "; status: Start;", true);
+            
         }
         return true;
     }

@@ -14,7 +14,7 @@ import java.sql.ResultSet;
  */
 public class DB_controller {
 
-    public static void CheckUser(Proxy proxy, String User, String Pass, String Remotehost) throws Exception {
+    public static boolean CheckUser(Proxy proxy, String User, String Pass, String Remotehost) throws Exception {
         Proxy _proxy = proxy;
         if (DB_controller.checkString(User) == true
                 && DB_controller.checkString(Pass) == true) {
@@ -29,18 +29,20 @@ public class DB_controller {
 
             if (rs.next() == true) {
                 if (rs.getInt("Permission") == 1) {
+                    _proxy.HostID = rs.getInt("HostID");
                     _proxy.UserSSH = rs.getString("Username");
                     _proxy.PassSSH = rs.getString("Password");
+                    rs.close();
+                    return true;
                 } else {
-                    _proxy.Close();
+                    rs.close();
+                    return false;
                 }
             }
-            rs.close();
-            Db_Connection.Open();
         } else {
-            Db_Connection.Open();
-            _proxy.Close();
+            return false;
         }
+        return false;
 
     }
 

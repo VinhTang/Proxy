@@ -113,8 +113,8 @@ public class DHG1linux extends KeyExchangelinux {
         buf.putMPInt(e);
         session.write(packet);
         if (proxy.Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-            proxy.Logs.Println(proxy.Logger.INFO, "SSH_MSG_KEXDH_INIT sent");
-            proxy.Logs.Println(proxy.Logger.INFO, "expecting SSH_MSG_KEXDH_REPLY");
+            proxy.Logs.Println(proxy.Logger.INFO, "SSH_MSG_KEXDH_INIT sent",true);
+            proxy.Logs.Println(proxy.Logger.INFO, "expecting SSH_MSG_KEXDH_REPLY",true);
         }
 
         state = SSH_MSG_KEXDH_REPLY;

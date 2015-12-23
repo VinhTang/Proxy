@@ -19,11 +19,11 @@ class UserAuthNone extends UserAuth {
             buf = session.read(buf);
             int command = buf.getCommand();
             if (command != SSH_MSG_SERVICE_REQUEST) {
-                proxy.Logs.Println(proxy.Logger.INFO, "Expect signal SSH_MSG_SERVICE_REQUEST fail ! Disconnect");
+                proxy.Logs.Println(proxy.Logger.INFO, "Expect signal SSH_MSG_SERVICE_REQUEST fail ! Disconnect",true);
                 session.disconnectpacket("Expect signal SSH_MSG_USERAUTH_REQUEST fail ! Disconnect");
                 session.disconnect();
             }
-            proxy.Logs.Println(proxy.Logger.INFO, "SSH_MSG_SERVICE_REQUEST received");
+            proxy.Logs.Println(proxy.Logger.INFO, "SSH_MSG_SERVICE_REQUEST received",true);
         //----------------------------------------------------------------------
 
             //--------send SSH_MSG_SERVICE_ACCEPT (6)-------------------------------
@@ -45,7 +45,7 @@ class UserAuthNone extends UserAuth {
             buf = session.read(buf);
             command = buf.getCommand();
             if (command != SSH_MSG_USERAUTH_REQUEST) {
-                proxy.Logs.Println(proxy.Logger.INFO, "Expect signal SSH_MSG_USERAUTH_REQUEST fail ! Disconnect");
+                proxy.Logs.Println(proxy.Logger.INFO, "Expect signal SSH_MSG_USERAUTH_REQUEST fail ! Disconnect",true);
                 session.disconnectpacket("Expect signal SSH_MSG_USERAUTH_REQUEST fail ! Disconnect");
                 session.disconnect();
             }
@@ -60,20 +60,20 @@ class UserAuthNone extends UserAuth {
             //--------send Auth Method of sshServer (50)------------------------
             buf.reset();
             packet.reset();
-            methods = session.GetPreferredAuthentications();
-            buf.putByte((byte) SSH_MSG_USERAUTH_FAILURE);
-            buf.putString(Tools.str2byte(methods));
-            buf.putByte((byte) 0);
-            session.write(packet);
-
-//            buf.putByte((byte) SSH_MSG_USERAUTH_SUCCESS);
+//            methods = session.GetPreferredAuthentications();
+//            buf.putByte((byte) SSH_MSG_USERAUTH_FAILURE);
+//            buf.putString(Tools.str2byte(methods));
+//            buf.putByte((byte) 0);
 //            session.write(packet);
+
+            buf.putByte((byte) SSH_MSG_USERAUTH_SUCCESS);
+            session.write(packet);
             
             //------------------------------------------------------------------
 
             return true;
         } catch (Exception e) {
-            proxy.Logs.Println(proxy.Logger.ERROR, "USERAUTH fail");
+            proxy.Logs.Println(proxy.Logger.ERROR, "USERAUTH fail",true);
             return false;
 
         }

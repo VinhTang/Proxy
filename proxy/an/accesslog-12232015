@@ -1,0 +1,46 @@
+[Dec 23,2015 12:55:20PM]- an-<proxy/192.168.10.1:52926>INFO: User:an; version:SOCKv5;type:success.
+[Dec 23,2015 12:55:23PM]- an-<proxy/192.168.10.1:52929>INFO: User:an; version:SOCKv5;type:success.
+[Dec 23,2015 12:56:06PM]- an-<proxy/192.168.10.1:52944>INFO: User:an; version:SOCKv5;type:success.
+[Dec 23,2015 12:56:08PM]- an-<proxy/192.168.10.1:52944>INFO: User:vinh; version:SSH; msg:Created ServerSide; type:Success.
+[Dec 23,2015 12:56:08PM]- an-<proxy/192.168.10.1:52944>INFO: User:vinh; version:SSH; HostID:1; msg:Created LinuxSide; type:Success.
+[Dec 23,2015 12:57:44PM]- an-<proxy/192.168.10.1:52944>INFO: username:vinh; version:; msg: Diconnect host; HostID:1
+[Dec 23,2015 12:57:44PM]- an-<proxy/192.168.10.1:52944>INFO: Username:vinh; version:; msg:User Discconnect!.
+[Dec 23,2015 12:57:50PM]- an-<proxy/192.168.10.1:52944>INFO: User:an; version:SSH; msg:Created ServerSide; type:Success.
+[Dec 23,2015 12:57:50PM]- an-<proxy/192.168.10.1:52944>INFO: username:an; version:; msg: Diconnect host; HostID:0
+[Dec 23,2015 12:57:50PM]- an-<proxy/192.168.10.1:52944>INFO: Username:an; version:; msg:User Discconnect!.
+[Dec 23,2015 12:57:57PM]- an-<proxy/192.168.10.1:52944>INFO: User:an; version:SSH; msg:Created ServerSide; type:Success.
+[Dec 23,2015 12:57:57PM]- an-<proxy/192.168.10.1:52944>INFO: username:an; version:; msg: Diconnect host; HostID:0
+[Dec 23,2015 12:57:57PM]- an-<proxy/192.168.10.1:52944>INFO: Username:an; version:; msg:User Discconnect!.
+[Dec 23,2015 12:58:09PM]- an-<proxy/192.168.10.1:52944>INFO: username:vinh; version:; msg: Diconnect host; HostID:1
+[Dec 23,2015 12:58:09PM]- an-<proxy/192.168.10.1:52944>INFO: Username:vinh; version:; msg:User Discconnect!.
+[Dec 23,2015 12:58:20PM]- an-<proxy/192.168.10.1:52944>INFO: username:vinh; version:; msg: Diconnect host; HostID:1
+[Dec 23,2015 12:58:20PM]- an-<proxy/192.168.10.1:52944>INFO: Username:vinh; version:; msg:User Discconnect!.
+[Dec 23,2015 12:58:48PM]- an-<proxy/192.168.10.1:52944>INFO: username:vinh; version:; msg: Diconnect host; HostID:1
+[Dec 23,2015 12:58:48PM]- an-<proxy/192.168.10.1:52944>INFO: Username:vinh; version:; msg:User Discconnect!.
+[Dec 23,2015 12:58:48PM]- an-<proxy/192.168.10.1:52944>INFO: username:vinh; version:; msg: Diconnect host; HostID:1
+[Dec 23,2015 12:58:48PM]- an-<proxy/192.168.10.1:52944>INFO: Username:vinh; version:; msg:User Discconnect!.
+[Dec 23,2015 13:11:51PM]- an-<proxy/192.168.10.1:53134>INFO: User:an; version:SOCKv5;type:success.
+[Dec 23,2015 13:12:03PM]- an-<proxy/192.168.10.1:53134>INFO: User:an; version:SSH; msg:Created ServerSide; type:Success.
+[Dec 23,2015 13:12:03PM]- an-<proxy/192.168.10.1:53134>INFO: username:an; version:; msg: Diconnect host; HostID:0
+[Dec 23,2015 13:12:03PM]- an-<proxy/192.168.10.1:53134>INFO: Username:an; version:; msg:User Discconnect!.
+[Dec 23,2015 13:14:59PM]- an-<proxy/192.168.10.1:53178>INFO: User:an; version:SOCKv5;type:success.
+[Dec 23,2015 13:15:04PM]- an-<proxy/192.168.10.1:53178>INFO: User:vinh; version:SSH; msg:Created ServerSide; type:Success.
+[Dec 23,2015 13:15:04PM]- an-<proxy/192.168.10.1:53178>INFO: User:vinh; version:SSH; HostID:1; msg:Created LinuxSide; type:Success.
+[Dec 23,2015 13:15:10PM]- an-<proxy/192.168.10.1:53178>INFO: User:an; version:SSH; msg:Created ServerSide; type:Success.
+[Dec 23,2015 13:15:10PM]- an-<proxy/192.168.10.1:53178>INFO: username:an; version:; msg: Diconnect host; HostID:0
+[Dec 23,2015 13:15:30PM]- an-<proxy/192.168.10.1:53186>INFO: User:an; version:SOCKv5;type:success.
+[Dec 23,2015 13:15:41PM]- an-<proxy/192.168.10.1:53186>INFO: User:an; version:SSH; msg:Created ServerSide; type:Success.
+[Dec 23,2015 13:15:41PM]- an-<proxy/192.168.10.1:53186>INFO: username:an; version:; msg: Diconnect host; HostID:0
+[Dec 23,2015 13:25:41PM]- an-<proxy/192.168.10.1:53311>INFO: User:an; version:SOCKv5;type:success.
+[Dec 23,2015 13:25:55PM]- an-<proxy/192.168.10.1:53311>INFO: User:an; version:SSH; msg:Created ServerSide; type:Success.
+[Dec 23,2015 13:25:55PM]- an-<proxy/192.168.10.1:53311>INFO: username:an; version:; msg: Diconnect host; HostID:0
+[Dec 23,2015 13:25:55PM]- an-<proxy/192.168.10.1:53311>INFO: Username:an; version:; msg:User Discconnect!.
+[Dec 23,2015 13:27:32PM]- an-<proxy/192.168.10.1:53337>INFO: User:an; version:SOCKv5;type:success.
+[Dec 23,2015 13:27:44PM]- an-<proxy/192.168.10.1:53337>INFO: User:an; version:SSH; msg:Created ServerSide; type:Success.
+[Dec 23,2015 13:27:44PM]- an-<proxy/192.168.10.1:53337>INFO: username:an; version:; msg: Diconnect host; HostID:0
+[Dec 23,2015 13:27:44PM]- an-<proxy/192.168.10.1:53337>INFO: Username:an; version:; msg:User Discconnect!.
+[Dec 23,2015 13:28:40PM]- an-<proxy/192.168.10.1:53353>INFO: User:an; version:SOCKv5;type:success.
+[Dec 23,2015 13:29:55PM]- an-<proxy/192.168.10.1:53370>INFO: User:an; version:SOCKv5;type:success.
+[Dec 23,2015 13:33:46PM]- an-<proxy/192.168.10.1:53416>INFO: User:an; version:SOCKv5;type:Fail.
+[Dec 23,2015 13:33:46PM]- an-<proxy/192.168.10.1:53416>INFO: username:an; version:; msg: Diconnect host; HostID:0
+[Dec 23,2015 13:33:46PM]- an-<proxy/192.168.10.1:53416>INFO: Username:an; version:; msg:User Discconnect!.

@@ -302,7 +302,7 @@ public class Tools {
         String sIA = "";
 
         if (DST_Addr.length < 4) {
-            Logs.Println(Logger.ERROR, "calcInetAddress() - Invalid length of IP v4 - " + DST_Addr.length + " bytes");
+            Logs.Println(Logger.ERROR, "calcInetAddress() - Invalid length of IP v4 - " + DST_Addr.length + " bytes",true);
             return null;
         }
 

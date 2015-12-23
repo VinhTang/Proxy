@@ -48,7 +48,7 @@ class UserAuthNonelinux extends UserAuthlinux {
 
         if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
             Logs.Println(proxy.Logger.INFO,
-                    "SSH_MSG_SERVICE_REQUEST sent");
+                    "SSH_MSG_SERVICE_REQUEST sent",true);
         }
 
         // receive
@@ -61,7 +61,7 @@ class UserAuthNonelinux extends UserAuthlinux {
 
         if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
             Logs.Println(proxy.Logger.INFO,
-                    "SSH_MSG_SERVICE_ACCEPT received");
+                    "SSH_MSG_SERVICE_ACCEPT received",true);
         }
         if (!result) {
             return false;

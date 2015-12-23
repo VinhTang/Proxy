@@ -33,15 +33,15 @@ public class Proxy extends Thread {
     protected String Host = null;
     protected int HostPort = 0;
 
-    protected String UserSSH = "vinh";
-    protected String PassSSH = "123";
+    protected int HostID = 0;
+    protected String UserSSH = null;
+    protected String PassSSH = null;
 
     protected String Username = null;
     protected String Password = null;
 
     ////////////////////////////////////////////////////////////////////////////
     //get Method
-
     public String getRemoteHost() {
         return RemoteHost;
     }
@@ -69,7 +69,7 @@ public class Proxy extends Thread {
     public InputStream inLinux = null;
     public OutputStream outLinux = null;
 
-    public static final int DEFAULT_TIMEOUT = 3 * 60 * 1000;
+    public static final int DEFAULT_TIMEOUT = 15 * 60 * 1000;
     public volatile boolean isConnected = false;
 
     public final boolean Have_Authentication = true; //SOCKs 5 Authentication Method
@@ -82,28 +82,21 @@ public class Proxy extends Thread {
 
     ////////////////////////////////////////////////////////////////////////////
     public Proxy(SOCKServer SockServer, Socket ClientSocket, boolean fLog) {
-
         bucket = this;
-
         SOCKServer = SockServer;
-
         if (SOCKServer == null) {
             Close();
             return;
-        }
-        if (fLog == true) {
-            Logs.setLogger(new Logs.ClientLog(ClientSocket));
         }
         this.ClientSocket = ClientSocket;
         if (ClientSocket != null) {
             try {
                 ClientSocket.setSoTimeout(DEFAULT_TIMEOUT);
             } catch (SocketException e) {
-                Logs.Println(Logger.ERROR, "Socket Exception during seting Timeout.");
+                Logs.PrintlnProxy(Logger.ERROR, "Socket Exception during seting Timeout.", true);
             }
         }
 
-        Logs.Println(Logger.INFO, "Proxy Created!");
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -120,7 +113,7 @@ public class Proxy extends Thread {
             inClient = ClientSocket.getInputStream();
             outClient = ClientSocket.getOutputStream();
         } catch (IOException e) {
-            Logs.Println(Logger.ERROR, "Proxy - can't get I/O streams!" + e.toString());
+            Logs.PrintlnProxy(Logger.ERROR, "Proxy - can't get I/O streams!" + e.toString(), true);
 
             return false;
         }
@@ -132,9 +125,12 @@ public class Proxy extends Thread {
     public void run() {
 
         setBucket(this);
+        isConnected = true;
         SOCKServer.addSession(this);
+        
+        Logs.setLogger(new Logs.ClientLog(ClientSocket));
         if (!PrepareClient()) {
-            Logs.Println(Logger.ERROR, "Proxy - client socket is null !");
+            Logs.PrintlnProxy(Logger.ERROR, "Proxy - client socket is null !", true);
             return;
         }
         ProcessRelay();
@@ -150,6 +146,7 @@ public class Proxy extends Thread {
     private void ProcessRelay() {
         try {
             // ---------SOCK CONNECT---------------------------------
+            
             byte SOCKVersion = GetByteFromClient();
 
             switch (SOCKVersion) {
@@ -160,23 +157,37 @@ public class Proxy extends Thread {
                     communicator = new SOCK5(this);
                     break;
                 default:
-                    Logs.Println(Logger.ERROR, "Invalid SOKCS version : " + SOCKVersion);
+                    Logs.PrintlnProxy(Logger.ERROR, "Invalid SOKCS version : " + SOCKVersion, true);
+                    ClientSocket.close();
                     return;
             }
-            communicator.AuthenticateVersion(SOCKVersion);
+
+            if (communicator.AuthenticateVersion(SOCKVersion) == false) {
+                ClientSocket.close();
+            }
             communicator.GetClientCommand();
+
             Username = communicator.getUsername();
             Password = communicator.getPassword();
             RemoteHost = communicator.getRemoteHost();
             RemotePort = communicator.getRemotePort();
             //-------------------------------------------------------
-            Logs.Println(Logger.INFO, "Accepted SOCKS " + SOCKVersion + " Request! ");
-            DB_controller.CheckUser(this, Username, Password, RemoteHost);
 
+            Logs.setLogUsers();
+            if (DB_controller.CheckUser(this, Username, Password, RemoteHost) == true) {
+                Logs.PrintlnProxy(Logger.INFO, "User:" + Username + "; version:SOCKv" + SOCKVersion + ";type:success.", false);
+                Logs.Println(Logger.INFO, "User:" + Username + "; version:SOCKv" + SOCKVersion + ";type:success.", false);
+            } else {
+                System.err.println("vao");
+                Logs.PrintlnProxy(Logger.INFO, "User:" + Username + "; version:SOCKv" + SOCKVersion + ";type:Fail.", false);
+                Logs.Println(Logger.INFO, "User:" + Username + "; version:SOCKv" + SOCKVersion + ";type:Fail.", false);
+                this.Close();
+                return;
+            };
+
+            Logs.Println(Logger.INFO, "Accepted SOCKS " + SOCKVersion + " Request! ", true);
             //---------SSH CONNECT-------------------------------------
-            
 
-            // sshserver check username/pass ? setRemotehost, of Proxy class : disconnect in sshserver
             if (ConnectToServer(RemoteHost, RemotePort) == false) {
                 this.Close();
             }
@@ -187,7 +198,6 @@ public class Proxy extends Thread {
             LinuxSide.setPassword(PassSSH);
 
             //start communication with sshServer
-            isConnected = true;
             boolean server = false;
             boolean linux = false;
             switch (communicator.Command) {
@@ -196,12 +206,19 @@ public class Proxy extends Thread {
                     //create SSH Trans
                     synchronized (bucket) {
                         server = ServerSide.Connect();
+
                         while (server == false) {
 
                         }
+                        Logs.PrintlnProxy(Logger.INFO, "User:" + Username + "; version:SSH; msg:Created ServerSide; type:Success.", false);
+                        Logs.Println(Logger.INFO, "User:" + Username + "; version:SSH; msg:Created ServerSide; type:Success.", false);
                         linux = LinuxSide.connect();
                         while (linux == false) {
                         }
+                        Logs.PrintlnProxy(Logger.INFO, "User:" + Username + "; version:SSH; HostID:" + HostID
+                                + "; msg:Created LinuxSide; type:Success.", false);
+                        Logs.Println(Logger.INFO, "User:" + Username + "; version:SSH; HostID:" + HostID
+                                + "; msg:Created LinuxSide; type:Success.", false);
                     }
             }
 
@@ -253,7 +270,6 @@ public class Proxy extends Thread {
     //-----------
     public void SendToClient(byte[] Buf, int Len) {
         if (outClient == null) {
-            Logs.Println(Logger.DEBUG, "outClient = null.  SentToCLient() ");
             return;
         }
         if (Len <= 0 || Len > Buf.length) {
@@ -264,7 +280,6 @@ public class Proxy extends Thread {
             outClient.write(Buf, 0, Len);
             outClient.flush();
         } catch (IOException e) {
-            Logs.Println(Logger.ERROR, "Sending data to client");
         }
     }
 
@@ -274,10 +289,8 @@ public class Proxy extends Thread {
         if (isConnected == false) {
             return;
         }
-        if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-            Logs.Println(proxy.Logger.INFO,
-                    "Disconnect from " + RemoteHost + " port " + RemotePort);
-        }
+        Logs.PrintlnProxy(Logger.INFO, "username:" + Username + "; version:; msg: Diconnect host; " + "HostID:" + HostID, false);
+
         isConnected = false;
         try {
 
@@ -291,6 +304,7 @@ public class Proxy extends Thread {
             }
         } catch (Exception e) {
         }
+        Logs.Println(Logger.INFO, "username:" + Username + "; version:; msg: Diconnect host; " + "HostID:" + HostID, false);
         //Disconnect Proxy <-> Linux
         try {
             if (LinuxSocket != null) {
@@ -312,8 +326,9 @@ public class Proxy extends Thread {
         }
         LinuxSocket = null;
         ClientSocket = null;
-
-        Logs.PrintlnProxy(Logger.INFO, "Connecttion from user" + communicator.UserID + " close!");
+        SOCKServer.removeSession(this);
+        Logs.PrintlnProxy(Logger.INFO, "Username:" + Username + "; version:; msg:User Discconnect!.", false);
+        Logs.Println(Logger.INFO, "Username:" + Username + "; version:; msg:User Discconnect!.", false);
     }
     //-------------------------------------------
 
@@ -323,15 +338,15 @@ public class Proxy extends Thread {
 
         if (Remotehost.equals("")) {
             Close();
-            Logs.Println(Logger.ERROR, "Invalid Remote Host Name - Empty String !!!");
+            Logs.Println(Logger.ERROR, "Invalid Remote Host Name - Empty String !!!", true);
             return false;
         }
         try {
             LinuxSocket = new Socket(Remotehost, remoteport);
             return true;
         } catch (Exception e) {
-            Logs.Println(Logger.ERROR, "Remotehost " + Remotehost + " is not available. Connect close");
-            Logs.PrintlnProxy(Logger.INFO, "Remotehost " + Remotehost + " is not available. Connect close");
+            Logs.Println(Logger.ERROR, "Remotehost " + Remotehost + " is not available. Connect close", true);
+            Logs.PrintlnProxy(Logger.INFO, "Remotehost " + Remotehost + " is not available. Connect close", true);
             return false;
         }
     }

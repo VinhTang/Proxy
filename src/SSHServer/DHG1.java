@@ -72,7 +72,7 @@ public class DHG1 extends SSHServer.KeyExchange {
             sha = (HASH) (c.newInstance());
             sha.init();
         } catch (Exception ee) {
-            proxy.Logs.Println(proxy.Logger.ERROR, ee.toString());
+            
         }
 
         try {
@@ -80,7 +80,7 @@ public class DHG1 extends SSHServer.KeyExchange {
             dh = (DH) (c.newInstance());
             dh.init();
         } catch (Exception ee) {
-            proxy.Logs.Println(proxy.Logger.ERROR, ee.toString());
+            
         }
         keypair = KeyPair.load(configure, "key\\proxyprv", "key\\proxypub.pub");
         
@@ -173,7 +173,7 @@ public class DHG1 extends SSHServer.KeyExchange {
         buf.putMPInt(f);
         buf.putString(signH);
         session.write(packet);
-        proxy.Logs.Println(proxy.Logger.INFO,"SSH_MSG_KEXDH_REPLY sent");
+        proxy.Logs.Println(proxy.Logger.INFO,"SSH_MSG_KEXDH_REPLY sent",true);
         
     }
 
