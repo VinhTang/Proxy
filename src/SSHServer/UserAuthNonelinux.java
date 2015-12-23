@@ -46,10 +46,8 @@ class UserAuthNonelinux extends UserAuthlinux {
         buf.putString(proxy.Tools.str2byte("ssh-userauth"));
         session.write(packet);
 
-        if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-            Logs.Println(proxy.Logger.INFO,
-                    "SSH_MSG_SERVICE_REQUEST sent",true);
-        }
+        Logs.Println(proxy.Logger.INFO,
+                "SSH_MSG_SERVICE_REQUEST sent", true);
 
         // receive
         // byte      SSH_MSG_SERVICE_ACCEPT(6)
@@ -59,10 +57,9 @@ class UserAuthNonelinux extends UserAuthlinux {
 
         boolean result = (command == SSH_MSG_SERVICE_ACCEPT);
 
-        if (Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-            Logs.Println(proxy.Logger.INFO,
-                    "SSH_MSG_SERVICE_ACCEPT received",true);
-        }
+        Logs.Println(proxy.Logger.INFO,
+                "SSH_MSG_SERVICE_ACCEPT received", true);
+
         if (!result) {
             return false;
         }

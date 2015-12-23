@@ -25,50 +25,23 @@ import java.util.Date;
 public class Logs {
 
     public static final String EOL = "\r\n";
-    public static boolean ProxyLog, ClientLog;
 
     ////////////////////////////////////////////////////////////////////////////
     private static DateFormat dateFormat;
     private static Date date;
 
+    private static Logger ProxyLog;
+    private static Logger ClientLog;
     ////////////////////////////////////////////////////////////////////////////
-    //--------------------------------------------------------------------------
-//    static Logger logger = DEVNULL;
-    static Logger logger;
 
-    public static void setLogger(Logger logger) {
-
-//        if (logger == null) {
-//            Logs.logger = DEVNULL;
-//        }
-        Logs.logger = logger;
+    public static void setProxyLog(Logger log) {
+        ProxyLog = log;
     }
 
-    public static Logger getLogger() {
-
-        return logger;
+    public static void setClientLog(Logger log) {
+        ClientLog = log;
     }
 
-    //--------------------------------------------------------------------------
-    ////////////////////////////////////////////////////////////////////////////
-//    private static final Logger DEVNULL = new Logger() {
-//
-//        public boolean isEnabled(int level) {
-//            return false;
-//        }
-//
-//        public void setUsername(String Str) {
-//        }
-//
-//        public void logproxy(int level, String message) {
-//
-//        }
-//
-//        public void logclient(int level, String message) {
-//
-//        }
-//
-//    };
     ////////////////////////////////////////////////////////////////////////////
     //--------------------------------------------------------------------------
     public static class ProxyLog implements proxy.Logger {
@@ -105,7 +78,7 @@ public class Logs {
                     case Logger.ERROR:
                         message = "[" + dateFormat.format(date) + "]-" + name.get(new Integer(level)) + txt.toUpperCase();
                         saveLog(message, true);
-                        System.err.print("\033[1;31m" + message + "\033[0;30m[");
+                        System.err.println("\033[1;31m" + message + "\033[0;30m[");
                         break;
                     case Logger.DEBUG:
                         Exception e = new Exception();
@@ -291,10 +264,7 @@ public class Logs {
 
         //----------------------------------------------------------------------
         public static void setUser(String _user) {
-            if (Logs.getLogger().isEnabled(Logger.INFO)) {
-                Logs.getLogger().setUsername(_user);
-
-            }
+            ClientLog.setUsername(_user);
         }
 
         public void setLogUser() {
@@ -346,38 +316,40 @@ public class Logs {
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
     public static void setLogUsers() {
-        Logs.getLogger().setLogUser();
-
+        ClientLog.setLogUser();
     }
 
     public static void setLogProxys() {
-        Logs.getLogger().setLogProxy();
+        ProxyLog.setLogProxy();
+    }
 
+    public static void setUsername(String user) {
+        ClientLog.setUsername(user);
     }
 
     //----------------------------------------------------------------------
     public static void Println(int level, String txt, boolean bool) {
         if (bool == true) {
-            if (Logs.getLogger().isEnabled(level)) {
-                Logs.getLogger().logclient(level, txt, true);
+            if (ClientLog.isEnabled(level)) {
+                ClientLog.logclient(level, txt, true);
             }
         }
         if (bool == false) {
-            if (Logs.getLogger().isEnabled(level)) {
-                Logs.getLogger().logclient(level, txt, false);
+            if (ClientLog.isEnabled(level)) {
+                ClientLog.logclient(level, txt, false);
             }
         }
     }
 
     public static void PrintlnProxy(int level, String txt, boolean bool) {
         if (bool == true) {
-            if (Logs.getLogger().isEnabled(level)) {
-                Logs.getLogger().logproxy(level, txt, true);
+            if (ProxyLog.isEnabled(level)) {
+                ProxyLog.logproxy(level, txt, true);
             }
         }
         if (bool == false) {
-            if (Logs.getLogger().isEnabled(level)) {
-                Logs.getLogger().logproxy(level, txt, false);
+            if (ProxyLog.isEnabled(level)) {
+                ProxyLog.logproxy(level, txt, false);
             }
         }
     }

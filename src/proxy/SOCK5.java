@@ -147,7 +147,7 @@ public class SOCK5 extends SOCK4 {
     //-----------------------
     private void Authenticate() {
         GetUserInfo();
-        Logs.getLogger().setUsername(Username);
+        Logs.setUsername(Username);
         Parent.SendToClient(SRE_AuthSuccess);
     }
     ////////////////////////////////////////////////////////////////////////////

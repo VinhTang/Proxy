@@ -70,8 +70,6 @@ public class DHG1linux extends KeyExchangelinux {
 
     public void init(sshLinux session,
             byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws Exception {
-        
-        
 
         this.sessionlinux = session;
         this.V_S = V_S;
@@ -112,17 +110,16 @@ public class DHG1linux extends KeyExchangelinux {
         buf.putByte((byte) SSH_MSG_KEXDH_INIT);
         buf.putMPInt(e);
         session.write(packet);
-        if (proxy.Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-            proxy.Logs.Println(proxy.Logger.INFO, "SSH_MSG_KEXDH_INIT sent",true);
-            proxy.Logs.Println(proxy.Logger.INFO, "expecting SSH_MSG_KEXDH_REPLY",true);
-        }
+
+        proxy.Logs.Println(proxy.Logger.INFO, "SSH_MSG_KEXDH_INIT sent", true);
+        proxy.Logs.Println(proxy.Logger.INFO, "expecting SSH_MSG_KEXDH_REPLY", true);
 
         state = SSH_MSG_KEXDH_REPLY;
     }
 
     public boolean next(Buffer _buf) throws Exception {
         int i, j;
-   
+
         switch (state) {
             case SSH_MSG_KEXDH_REPLY:
                 // The server responds with:
@@ -137,7 +134,7 @@ public class DHG1linux extends KeyExchangelinux {
                     System.err.println("type: must be 31 " + j);
                     return false;
                 }
-    
+
                 K_S = _buf.getString();
 
                 byte[] f = _buf.getMPInt();
@@ -194,7 +191,5 @@ public class DHG1linux extends KeyExchangelinux {
     public int getState() {
         return state;
     }
-
-
 
 }

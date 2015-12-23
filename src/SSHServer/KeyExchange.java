@@ -41,7 +41,6 @@ public abstract class KeyExchange {
     public abstract void init(sshServer session,
             byte[] V_S, byte[] V_C, byte[] I_S, byte[] I_C) throws Exception;
 
-
     public abstract boolean next(Buffer buf) throws Exception;
 
     public abstract int getState();
@@ -84,7 +83,6 @@ public abstract class KeyExchange {
 //            sb.setOffSet(17);
 //            cb.setOffSet(17);
 //        }
-
         for (int i = 0; i < PROPOSAL_MAX; i++) {
             byte[] sp = sb.getString();  // server proposal
             byte[] cp = cb.getString();  // client proposal
@@ -126,18 +124,16 @@ public abstract class KeyExchange {
             }
         }
 
-        if (proxy.Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-            proxy.Logs.Println(proxy.Logger.INFO,
-                    "kex: server->client"
-                    + " " + guess[PROPOSAL_ENC_ALGS_STOC]
-                    + " " + guess[PROPOSAL_MAC_ALGS_STOC]
-                    + " " + guess[PROPOSAL_COMP_ALGS_STOC],true);
-            proxy.Logs.Println(proxy.Logger.INFO,
-                    "kex: client->server"
-                    + " " + guess[PROPOSAL_ENC_ALGS_CTOS]
-                    + " " + guess[PROPOSAL_MAC_ALGS_CTOS]
-                    + " " + guess[PROPOSAL_COMP_ALGS_CTOS],true);
-        }
+        proxy.Logs.Println(proxy.Logger.INFO,
+                "kex: server->client"
+                + " " + guess[PROPOSAL_ENC_ALGS_STOC]
+                + " " + guess[PROPOSAL_MAC_ALGS_STOC]
+                + " " + guess[PROPOSAL_COMP_ALGS_STOC], true);
+        proxy.Logs.Println(proxy.Logger.INFO,
+                "kex: client->server"
+                + " " + guess[PROPOSAL_ENC_ALGS_CTOS]
+                + " " + guess[PROPOSAL_MAC_ALGS_CTOS]
+                + " " + guess[PROPOSAL_COMP_ALGS_CTOS], true);
 
         return guess;
     }
@@ -219,16 +215,15 @@ public abstract class KeyExchange {
                 sig = (SignatureRSA) (c.newInstance());
                 sig.init();
             } catch (Exception e) {
-                System.err.println("loi: "+e.toString());
+                System.err.println("loi: " + e.toString());
             }
             sig.setPubKey(ee, n);
             sig.update(H);
             result = sig.verify(sig_of_H);
 
-            if (proxy.Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-                proxy.Logs.Println(proxy.Logger.INFO,
-                        "ssh_rsa_verify: signature " + result,true);
-            }
+            proxy.Logs.Println(proxy.Logger.INFO,
+                    "ssh_rsa_verify: signature " + result, true);
+
         } else if (alg.equals("ssh-dss")) {
             byte[] q = null;
             byte[] tmp;
@@ -276,10 +271,9 @@ public abstract class KeyExchange {
             sig.update(H);
             result = sig.verify(sig_of_H);
 
-            if (proxy.Logs.getLogger().isEnabled(proxy.Logger.INFO)) {
-                proxy.Logs.Println(proxy.Logger.INFO,
-                        "ssh_dss_verify: signature " + result,true);
-            }
+            proxy.Logs.Println(proxy.Logger.INFO,
+                    "ssh_dss_verify: signature " + result, true);
+
         } else if (alg.equals("ecdsa-sha2-nistp256")
                 || alg.equals("ecdsa-sha2-nistp384")
                 || alg.equals("ecdsa-sha2-nistp521")) {

@@ -127,8 +127,10 @@ public class Proxy extends Thread {
         setBucket(this);
         isConnected = true;
         SOCKServer.addSession(this);
+
+        Logger ClientLog = new Logs.ClientLog(ClientSocket);
+        Logs.setClientLog(ClientLog);
         
-        Logs.setLogger(new Logs.ClientLog(ClientSocket));
         if (!PrepareClient()) {
             Logs.PrintlnProxy(Logger.ERROR, "Proxy - client socket is null !", true);
             return;

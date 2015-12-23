@@ -301,7 +301,7 @@ public class sshServer {
                     getConfig("random");
                     Class c = Class.forName(getConfig("random"));
                     cookie = (Cookie) (c.newInstance());
-                } catch (Exception e) {                    
+                } catch (Exception e) {
                 }
             }
 //------------------------------------------------------------------------------        
@@ -314,7 +314,7 @@ public class sshServer {
                 in_kex = false;
             }
 
-            Logs.Println(proxy.Logger.DEBUG, "SSH_MSG_KEXINIT received",true);
+            Logs.Println(proxy.Logger.DEBUG, "SSH_MSG_KEXINIT received", true);
             receive_kexinit(buf);
 
 //------------------------------------------------------------------------------     
@@ -344,13 +344,13 @@ public class sshServer {
             buf.reset();
             buf = read(buf);
             if (buf.getCommand() == SSH_MSG_NEWKEYS) {
-                Logs.Println(proxy.Logger.DEBUG, "SSH_MSG_NEWKEYS received",true);
+                Logs.Println(proxy.Logger.DEBUG, "SSH_MSG_NEWKEYS received", true);
                 in_kex = false;
                 send_newkeys();
                 updateKeys(kex);
 
             } else {
-                proxy.Logs.Println(proxy.Logger.INFO, "invalid signal. Connect Resfuse.",true);
+                proxy.Logs.Println(proxy.Logger.INFO, "invalid signal. Connect Resfuse.", true);
                 disconnectpacket("Invalid signal. Connect Resfuse");
                 disconnect();
                 _proxy.Close();
@@ -495,7 +495,7 @@ public class sshServer {
 //
 //            }
             firstcheck = true;
-            Logs.Println(proxy.Logger.INFO, "Connect success to client",true);
+            Logs.Println(proxy.Logger.INFO, "Connect success to client", true);
             return true;
 
         } catch (Exception e) {
@@ -573,7 +573,7 @@ public class sshServer {
             ciphers2c = Tools.diffString(ciphers2c, not_available);
 
             if (cipherc2s == null || ciphers2c == null) {
-                Logs.Println(proxy.Logger.ERROR, "There are not any available ciphers.",true);
+                Logs.Println(proxy.Logger.ERROR, "There are not any available ciphers.", true);
             }
         }
 
@@ -610,7 +610,7 @@ public class sshServer {
 
         write(packet);
 
-        Logs.Println(proxy.Logger.DEBUG, "SSH_MSG_KEXINIT sent",true);
+        Logs.Println(proxy.Logger.DEBUG, "SSH_MSG_KEXINIT sent", true);
     }
 
     //-----------------------------------------
@@ -621,7 +621,7 @@ public class sshServer {
         buf.putByte((byte) SSH_MSG_NEWKEYS);
         write(packet);
 
-        proxy.Logs.Println(proxy.Logger.DEBUG, "SSH_MSG_NEWKEYS sent",true);
+        proxy.Logs.Println(proxy.Logger.DEBUG, "SSH_MSG_NEWKEYS sent", true);
     }
 
     //-----------------------------------------
@@ -841,7 +841,7 @@ public class sshServer {
         long t = getTimeout();
         while (in_kex) {
             if (t > 0L && (System.currentTimeMillis() - kex_start_time) > t) {
-                Logs.Println(proxy.Logger.DEBUG, "timeout in wating for rekeying process.",true);
+                Logs.Println(proxy.Logger.DEBUG, "timeout in wating for rekeying process.", true);
             }
             byte command = packet.buffer.getCommand();
             //System.err.println("SERVER [ send ] StoL: " + command);
@@ -908,9 +908,7 @@ public class sshServer {
 
             if ((need % c2scipher_size) != 0) {
                 String message = "Bad packet length " + need;
-                if (Logs.getLogger().isEnabled(proxy.Logger.FATAL)) {
-                    Logs.Println(proxy.Logger.DEBUG, message,true);
-                }
+                Logs.Println(proxy.Logger.DEBUG, message, true);
                 start_discard(buf, c2scipher, c2smac, j, PACKET_MAX_SIZE - c2scipher_size);
             }
 
@@ -973,10 +971,8 @@ public class sshServer {
                 buf.getInt();
                 buf.getShort();
                 int reason_id = buf.getInt();
-                if (Logs.getLogger().isEnabled(proxy.Logger.DEBUG)) {
-                    Logs.Println(proxy.Logger.DEBUG,
-                            "Received SSH_MSG_UNIMPLEMENTED for " + reason_id,true);
-                }
+                Logs.Println(proxy.Logger.DEBUG,
+                        "Received SSH_MSG_UNIMPLEMENTED for " + reason_id, true);
             } else if (type == SSH_MSG_DEBUG) {
                 buf.rewind();
                 buf.getInt();

@@ -107,7 +107,7 @@ public class SOCK4 {
             UserID += (char) b;
         }
         Calculate_Username();
-        Logs.getLogger().setUsername(UserID);
+        Logs.setUsername(UserID);
         //------------------------
         if ((Command < SC_CONNECT)) {
             Refuse_Command((byte) 91);
